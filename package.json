@@ -1,0 +1,24 @@
+{
+  "name": "gitlab-ci-template",
+  "type": "module",
+  "scripts": {
+    "tsc": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dalyIsaac/gitlab-ci-template.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/dalyIsaac/gitlab-ci-template/issues"
+  },
+  "homepage": "https://github.com/dalyIsaac/gitlab-ci-template#readme",
+  "dependencies": {
+    "zx": "^8.8.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
