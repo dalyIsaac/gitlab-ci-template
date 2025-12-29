@@ -4,47 +4,41 @@ import { ALL_CI_PIPELINE_SOURCES } from "../../utils/pipeline.mts";
 import { SQUAWK_CONFIG, type SquawkCheck } from "./squawk-config.mts";
 
 jobMain(ALL_CI_PIPELINE_SOURCES, async ({ source, pipeline }) => {
-  const preApprovalResults = await runMultipleChecks(
-    SQUAWK_CONFIG.preApproval,
-    "Pre-Approval"
+  const preApprovalResults = await jobSection(
+    "Squawk Pre-Approval Checks",
+    () => runMultipleChecks(SQUAWK_CONFIG.preApproval)
   );
 
-  if ("CI_MERGE_REQUEST_APPROVED" in pipeline.env) {
-    const mrApproved = pipeline.env.CI_MERGE_REQUEST_APPROVED;
-
-    if (mrApproved) {
-      const postApprovalResults = await runMultipleChecks(
-        SQUAWK_CONFIG.postApproval,
-        "Post-Approval"
-      );
-    }
-  }
+  const postApprovalResults =
+    "CI_MERGE_REQUEST_APPROVED" in pipeline.env &&
+    pipeline.env.CI_MERGE_REQUEST_APPROVED
+      ? await jobSection("Squawk Post-Approval Checks", () =>
+          runMultipleChecks(SQUAWK_CONFIG.postApproval)
+        )
+      : [];
 
   // TODO: Summarize the results and post to the merge request.
 });
 
 async function runMultipleChecks(
-  checks: SquawkCheck[],
-  checkType: "Pre-Approval" | "Post-Approval"
+  checks: SquawkCheck[]
 ): Promise<SquawkCheckResult[]> {
   const results: SquawkCheckResult[] = [];
 
-  await jobSection(`Squawk ${checkType} Checks`, async () => {
-    for (const check of checks) {
-      try {
-        await runCheck(check);
-        results.push({ check, passed: true });
-        jobLog(`Check "${check.name}" passed.`);
-      } catch (error) {
-        results.push({ check, passed: false });
-        jobLog(
-          `Check "${check.name}" failed${
-            check.canIgnore ? ", but was ignored." : "."
-          }`
-        );
-      }
+  for (const check of checks) {
+    try {
+      await runCheck(check);
+      results.push({ check, passed: true });
+      jobLog(`Check "${check.name}" passed.`);
+    } catch (error) {
+      results.push({ check, passed: false });
+      jobLog(
+        `Check "${check.name}" failed${
+          check.canIgnore ? ", but was ignored." : "."
+        }`
+      );
     }
-  });
+  }
 
   return results;
 }

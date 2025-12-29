@@ -25,7 +25,10 @@ let nesting = 0;
 
 const SEPARATOR = "================================";
 
-export async function jobSection(name: string, fn: () => Promise<void>) {
+export async function jobSection<TResult>(
+  name: string,
+  fn: () => Promise<TResult>
+): Promise<TResult> {
   nesting += 1;
 
   const startTime = Date.now();
@@ -35,7 +38,7 @@ export async function jobSection(name: string, fn: () => Promise<void>) {
   jobLog(`Start time: ${new Date(startTime).toISOString()}`);
   jobLog(SEPARATOR);
 
-  await fn();
+  const result = await fn();
 
   jobLog(SEPARATOR);
   const endTime = Date.now();
@@ -46,6 +49,8 @@ export async function jobSection(name: string, fn: () => Promise<void>) {
   jobLog("\n");
 
   nesting -= 1;
+
+  return result;
 }
 
 /**
