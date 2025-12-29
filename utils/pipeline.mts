@@ -27,7 +27,7 @@ interface PipelineConfig {
 export const ALL_CI_PIPELINE_SOURCES = ["merge_request_event", "push"] as const;
 
 /**
- * {@inheritDoc CI_PIPELINE_SOURCES}
+ * A subset of the possible CI_PIPELINE_SOURCE values from https://docs.gitlab.com/ci/jobs/job_rules/#ci_pipeline_source-predefined-variable.
  */
 export type CI_PIPELINE_SOURCE = (typeof ALL_CI_PIPELINE_SOURCES)[number];
 
