@@ -2,7 +2,8 @@
   "name": "gitlab-ci-template",
   "type": "module",
   "scripts": {
-    "tsc": "tsc",
+    "typecheck": "tsc --noEmit",
+    "typecheck:watch": "tsc --noEmit --watch",
     "format": "prettier --write ."
   },
   "repository": {
