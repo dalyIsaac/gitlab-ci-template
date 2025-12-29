@@ -5,7 +5,7 @@ import {
   getEnvVarFromEnv,
   IS_CI,
   type CustomVariableConfig,
-} from "./env/utils.mts";
+} from "./utils.mts";
 
 const ENV_VAR_DECLARATIONS = [
   "CI_PIPELINE_IID",
