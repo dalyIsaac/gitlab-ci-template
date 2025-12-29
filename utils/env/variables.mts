@@ -1,11 +1,4 @@
-import {
-  createGetEnvVarFromShell,
-  createGetTypedEnvVarFromEnv,
-  env,
-  getEnvVarFromEnv,
-  IS_CI,
-  type CustomVariableConfig,
-} from "./utils.mts";
+import { createGetEnvVarFromShell, createGetTypedEnvVarFromEnv, env, getEnvVarFromEnv, IS_CI, type VariableConfig } from "./utils.mts";
 
 const ENV_VAR_DECLARATIONS = [
   "CI_PIPELINE_IID",
@@ -24,7 +17,7 @@ const ENV_VAR_DECLARATIONS = [
   "CI_MERGE_REQUEST_IID",
 ] as const satisfies Variable<string>[];
 
-type Variable<TName extends string> = TName | CustomVariableConfig<TName, any>;
+type Variable<TName extends string> = TName | VariableConfig<TName, any>;
 
 /**
  * A map of {@link ENV_VAR_DECLARATIONS} names to the values or getter functions.
@@ -45,7 +38,7 @@ export const ENV_VARS_MAP = (() => {
     const variant = IS_CI ? "pipeline" : "local";
 
     // Cast to ignore ENV_VAR_DECLARATIONS being a readonly tuple.
-    const typedConfig = config as CustomVariableConfig<string, any>;
+    const typedConfig = config as VariableConfig<string, any>;
 
     obj[config.name] = () => typedConfig[variant](config);
   }
@@ -84,7 +77,7 @@ type PipelineEnvVarsRecord<TVarNames extends keyof EnvVarsMap> = {
 type EnvVarsMap = {
   [key in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[key] extends string
     ? string
-    : EnvVarsDeclarationsMap[key] extends CustomVariableConfig<string, infer R>
+    : EnvVarsDeclarationsMap[key] extends VariableConfig<string, infer R>
       ? () => Promise<R>
       : never;
 };

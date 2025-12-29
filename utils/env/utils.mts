@@ -20,20 +20,20 @@ export const env = (varName: string): string => {
 };
 
 /**
- * An environment variable which has a custom implementation when running on a local machine.
+ * The configuration for an environment variable.
  */
-export interface CustomVariableConfig<TName extends string, TResult> {
+export interface VariableConfig<TName extends string, TResult> {
   name: TName;
   local: CustomVariableFn<TName, TResult>;
   pipeline: CustomVariableFn<TName, TResult>;
 }
 
-export type CustomVariableFn<TName extends string, TResult = string> = (config: CustomVariableConfig<TName, TResult>) => Promise<TResult>;
+export type CustomVariableFn<TName extends string, TResult = string> = (config: VariableConfig<TName, TResult>) => Promise<TResult>;
 
 export const createGetTypedEnvVarFromEnv =
   <TCustomVariableType extends CustomVariableType>(type: TCustomVariableType) =>
   async <TName extends string>(
-    config: CustomVariableConfig<TName, StringTypeToType<TCustomVariableType>>,
+    config: VariableConfig<TName, StringTypeToType<TCustomVariableType>>,
   ): Promise<StringTypeToType<TCustomVariableType>> => {
     const value = env(config.name);
     return tryCastValue(value, type);
@@ -55,8 +55,7 @@ type StringTypeToType<TCustomVariableType> = TCustomVariableType extends "number
  * @param config The custom variable configuration.
  * @returns The value of the environment variable.
  */
-export const getEnvVarFromEnv = async <TName extends string>(config: CustomVariableConfig<TName, string>): Promise<string> =>
-  env(config.name);
+export const getEnvVarFromEnv = async <TName extends string>(config: VariableConfig<TName, string>): Promise<string> => env(config.name);
 
 export type CustomVariableType = "string" | "number" | "boolean";
 
