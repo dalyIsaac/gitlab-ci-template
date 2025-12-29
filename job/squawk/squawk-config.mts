@@ -3,20 +3,22 @@ export const SQUAWK_CONFIG: SquawkConfig = {
     {
       name: "All commits are GPG signed",
       script: "check-gpg.mts",
-      canIgnore: false,
     },
     {
       name: "Developer has reviewed their changes",
       userInputType: "boolean",
-      canIgnore: false,
     },
     {
       name: "Developer has updated merge request description",
       script: "check-mr-description.mts",
-      canIgnore: false,
     },
   ],
-  postApproval: [],
+  postApproval: [
+    {
+      name: "Has run System Tests on the branch HEAD",
+      script: "check-system-tests.mts",
+    },
+  ],
 };
 
 interface SquawkConfig {
