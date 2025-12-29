@@ -1,4 +1,4 @@
-import { createGetEnvVarFromShell, createGetTypedEnvVarFromEnv, env, getEnvVarFromEnv, IS_CI, type VariableConfig } from "./utils.mts";
+import { createGetEnvVarFromShell, createGetTypedEnvVarFromEnv, env, getEnvVarFromEnv, IS_CI, type VariableConfig } from "./env-utils.mts";
 
 const ENV_VAR_DECLARATIONS = [
   "CI_PIPELINE_IID",

@@ -1,5 +1,5 @@
-import { env } from "./env/utils.mts";
-import { ENV_VARS_MAP, getPipelineEnvVars } from "./env/variables.mts";
+import { env } from "./env-utils.mts";
+import { ENV_VARS_MAP, getPipelineEnvVars } from "./env-vars.mts";
 
 const COMMON_ENV_VARS = ["CI_COMMIT_REF_NAME", "CI_PIPELINE_IID"] as const;
 
