@@ -4,25 +4,17 @@ import { ALL_CI_PIPELINE_SOURCES } from "../../utils/pipeline.mts";
 import { SQUAWK_CONFIG, type SquawkCheck } from "./squawk-config.mts";
 
 jobMain(ALL_CI_PIPELINE_SOURCES, async ({ source, pipeline }) => {
-  const preApprovalResults = await jobSection(
-    "Squawk Pre-Approval Checks",
-    () => runMultipleChecks(SQUAWK_CONFIG.preApproval)
-  );
+  const preApprovalResults = await jobSection("Squawk Pre-Approval Checks", () => runMultipleChecks(SQUAWK_CONFIG.preApproval));
 
   const postApprovalResults =
-    "CI_MERGE_REQUEST_APPROVED" in pipeline.env &&
-    pipeline.env.CI_MERGE_REQUEST_APPROVED
-      ? await jobSection("Squawk Post-Approval Checks", () =>
-          runMultipleChecks(SQUAWK_CONFIG.postApproval)
-        )
+    "CI_MERGE_REQUEST_APPROVED" in pipeline.env && pipeline.env.CI_MERGE_REQUEST_APPROVED
+      ? await jobSection("Squawk Post-Approval Checks", () => runMultipleChecks(SQUAWK_CONFIG.postApproval))
       : [];
 
   // TODO: Summarize the results and post to the merge request.
 });
 
-async function runMultipleChecks(
-  checks: SquawkCheck[]
-): Promise<SquawkCheckResult[]> {
+async function runMultipleChecks(checks: SquawkCheck[]): Promise<SquawkCheckResult[]> {
   const results: SquawkCheckResult[] = [];
 
   for (const check of checks) {
@@ -32,11 +24,7 @@ async function runMultipleChecks(
       jobLog(`Check "${check.name}" passed.`);
     } catch (error) {
       results.push({ check, passed: false });
-      jobLog(
-        `Check "${check.name}" failed${
-          check.canIgnore ? ", but was ignored." : "."
-        }`
-      );
+      jobLog(`Check "${check.name}" failed${check.canIgnore ? ", but was ignored." : "."}`);
     }
   }
 

@@ -4,9 +4,9 @@ const IS_CI = process.env["GITLAB_CI"] === "true";
 export const env = (arg: string): string => "unknown";
 
 // #region Pipeline environment variables.
-export function getPipelineEnvVars<
-  TVarNames extends readonly (keyof EnvVarsMap)[]
->(...varNames: TVarNames): PipelineEnvVarsRecord<TVarNames[number]> {
+export function getPipelineEnvVars<TVarNames extends readonly (keyof EnvVarsMap)[]>(
+  ...varNames: TVarNames
+): PipelineEnvVarsRecord<TVarNames[number]> {
   const record: Partial<EnvVarsMap> = {};
 
   for (const name of varNames) {
@@ -64,10 +64,7 @@ export const ENV_VARS_MAP = (() => {
     }
 
     if (IS_CI) {
-      obj[variable.name] =
-        "pipeline" in variable
-          ? variable.pipeline
-          : () => Promise.resolve(env(variable.name));
+      obj[variable.name] = "pipeline" in variable ? variable.pipeline : () => Promise.resolve(env(variable.name));
       continue;
     }
 
@@ -81,9 +78,7 @@ export const ENV_VARS_MAP = (() => {
  * A map of the environment variable names to the type.
  */
 type EnvVarsMap = {
-  [key in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[key] extends string
-    ? string
-    : () => Promise<string>;
+  [key in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[key] extends string ? string : () => Promise<string>;
 };
 
 /**
@@ -99,9 +94,9 @@ type ArrayToObject<T extends readonly any[]> = {
   [P in T[number] as P extends string
     ? P // If it's a string, use it as the key.
     : P extends { name: infer N }
-    ? N extends string
-      ? N
-      : never // If it has a "name", use the name as the key.
-    : never]: P; // The value is the original type from the array.
+      ? N extends string
+        ? N
+        : never // If it has a "name", use the name as the key.
+      : never]: P; // The value is the original type from the array.
 };
 // #endregion

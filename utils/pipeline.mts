@@ -1,4 +1,4 @@
-import { getPipelineEnvVars, ENV_VARS_MAP, env } from "./env.mts";
+import { ENV_VARS_MAP, env, getPipelineEnvVars } from "./env.mts";
 
 const COMMON_ENV_VARS = ["CI_COMMIT_REF_NAME", "CI_PIPELINE_IID"] as const;
 
@@ -40,15 +40,11 @@ const CI_PIPELINE_SOURCE = env("CI_PIPELINE_SOURCE") as CI_PIPELINE_SOURCE;
  * @returns The current pipeline source.
  * @throws If the current pipeline source is not in the accepted sources.
  */
-export function getPipelineSource<
-  TSources extends readonly CI_PIPELINE_SOURCE[] = readonly CI_PIPELINE_SOURCE[]
->(...accepts: TSources): TSources[number] {
+export function getPipelineSource<TSources extends readonly CI_PIPELINE_SOURCE[] = readonly CI_PIPELINE_SOURCE[]>(
+  ...accepts: TSources
+): TSources[number] {
   if (!accepts.includes(CI_PIPELINE_SOURCE)) {
-    throw new Error(
-      `Invalid pipeline source: ${CI_PIPELINE_SOURCE}. Expected one of: ${accepts.join(
-        ", "
-      )}`
-    );
+    throw new Error(`Invalid pipeline source: ${CI_PIPELINE_SOURCE}. Expected one of: ${accepts.join(", ")}`);
   }
 
   return CI_PIPELINE_SOURCE as TSources[number];

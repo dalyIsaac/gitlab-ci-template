@@ -1,12 +1,9 @@
-import {
-  type CI_PIPELINE_SOURCE,
-  getPipelineSource,
-  PIPELINE_CONFIGS,
-} from "./pipeline.mts";
+import { type CI_PIPELINE_SOURCE, getPipelineSource, PIPELINE_CONFIGS } from "./pipeline.mts";
 
-export async function jobMain<
-  TSources extends readonly CI_PIPELINE_SOURCE[] = readonly CI_PIPELINE_SOURCE[]
->(sources: TSources, fn: (arg: JobMainArg<TSources[number]>) => Promise<void>) {
+export async function jobMain<TSources extends readonly CI_PIPELINE_SOURCE[] = readonly CI_PIPELINE_SOURCE[]>(
+  sources: TSources,
+  fn: (arg: JobMainArg<TSources[number]>) => Promise<void>,
+) {
   const source = getPipelineSource(...sources);
   const pipeline = PIPELINE_CONFIGS[source];
 
@@ -25,10 +22,7 @@ let nesting = 0;
 
 const SEPARATOR = "================================";
 
-export async function jobSection<TResult>(
-  name: string,
-  fn: () => Promise<TResult>
-): Promise<TResult> {
+export async function jobSection<TResult>(name: string, fn: () => Promise<TResult>): Promise<TResult> {
   nesting += 1;
 
   const startTime = Date.now();
@@ -59,5 +53,4 @@ export async function jobSection<TResult>(
  *
  * @param message The message to log.
  */
-export const jobLog = (message: string): void =>
-  console.log(`${"  ".repeat(nesting)}${message}`);
+export const jobLog = (message: string): void => console.log(`${"  ".repeat(nesting)}${message}`);
