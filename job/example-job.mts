@@ -1,7 +1,9 @@
-import { getPipelineSource, PIPELINE_CONFIGS } from "../utils/pipeline.mts";
+import { jobMain, jobSection } from "../utils/job.mts";
 
-const pipelineSource = getPipelineSource("merge_request_event", "push");
-const pipeline = PIPELINE_CONFIGS[pipelineSource];
+jobMain(["merge_request_event", "push"], async ({ source, pipeline }) => {
+  const refName = await pipeline.env.CI_COMMIT_REF_NAME();
 
-const refName = await pipeline.env.CI_COMMIT_REF_NAME();
-console.log(`Current branch: ${refName}`);
+  await jobSection("Print Branch Name", async () => {
+    console.log(`Current branch: ${refName}`);
+  });
+});
