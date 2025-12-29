@@ -24,13 +24,7 @@ interface PipelineConfig {
 /**
  * A subset of the possible CI_PIPELINE_SOURCE values from https://docs.gitlab.com/ci/jobs/job_rules/#ci_pipeline_source-predefined-variable.
  */
-export type CI_PIPELINE_SOURCE =
-  | "api"
-  | "merge_request_event"
-  | "push"
-  | "schedule"
-  | "trigger"
-  | "web";
+export type CI_PIPELINE_SOURCE = "merge_request_event" | "push";
 
 const CI_PIPELINE_SOURCE = env("CI_PIPELINE_SOURCE") as CI_PIPELINE_SOURCE;
 
