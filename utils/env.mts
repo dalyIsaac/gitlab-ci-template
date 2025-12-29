@@ -1,5 +1,5 @@
 // Environment variables
-const IS_CI = true;
+const IS_CI = process.env["GITLAB_CI"] === "true";
 
 export const env = (arg: string): string => "unknown";
 
