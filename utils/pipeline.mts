@@ -7,7 +7,7 @@ const COMMON_ENV_VARS = ["CI_COMMIT_REF_NAME", "CI_PIPELINE_IID"] as const;
  */
 export const PIPELINE_CONFIGS = {
   merge_request_event: {
-    env: getPipelineEnvVars(...COMMON_ENV_VARS),
+    env: getPipelineEnvVars(...COMMON_ENV_VARS, "CI_MERGE_REQUEST_APPROVED"),
   },
   push: {
     env: getPipelineEnvVars(...COMMON_ENV_VARS),
@@ -24,7 +24,12 @@ interface PipelineConfig {
 /**
  * A subset of the possible CI_PIPELINE_SOURCE values from https://docs.gitlab.com/ci/jobs/job_rules/#ci_pipeline_source-predefined-variable.
  */
-export type CI_PIPELINE_SOURCE = "merge_request_event" | "push";
+export const ALL_CI_PIPELINE_SOURCES = ["merge_request_event", "push"] as const;
+
+/**
+ * {@inheritDoc CI_PIPELINE_SOURCES}
+ */
+export type CI_PIPELINE_SOURCE = (typeof ALL_CI_PIPELINE_SOURCES)[number];
 
 const CI_PIPELINE_SOURCE = env("CI_PIPELINE_SOURCE") as CI_PIPELINE_SOURCE;
 

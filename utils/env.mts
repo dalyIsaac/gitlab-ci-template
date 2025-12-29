@@ -4,7 +4,9 @@ const IS_CI = true;
 export const env = (arg: string): string => "unknown";
 
 // #region Pipeline environment variables.
-export function getPipelineEnvVars<TVarNames extends readonly (keyof EnvVarsMap)[]>(...varNames: TVarNames): PipelineEnvVarsRecord<TVarNames[number]> {
+export function getPipelineEnvVars<
+  TVarNames extends readonly (keyof EnvVarsMap)[]
+>(...varNames: TVarNames): PipelineEnvVarsRecord<TVarNames[number]> {
   const record: Partial<EnvVarsMap> = {};
 
   for (const name of varNames) {
@@ -16,7 +18,7 @@ export function getPipelineEnvVars<TVarNames extends readonly (keyof EnvVarsMap)
 
 type PipelineEnvVarsRecord<TVarNames extends keyof EnvVarsMap> = {
   [key in TVarNames]: EnvVarsMap[key];
-}
+};
 // #endregion
 
 // #region Environment variable declarations.
@@ -25,13 +27,17 @@ const ENV_VAR_DECLARATIONS = [
   {
     name: "CI_COMMIT_REF_NAME",
     local: () => Promise.resolve("hello"),
-      // ($`git rev-parse --abbrev-ref HEAD`).stdout.trim();
+    // ($`git rev-parse --abbrev-ref HEAD`).stdout.trim();
   },
   {
     name: "TEST_PIPELINE",
     local: () => Promise.resolve("TEST_PIPELINE"),
     pipeline: () => Promise.resolve("TEST_PIPELINE"),
-  }
+  },
+
+  // Merge request specific variables.
+  "CI_MERGE_REQUEST_APPROVED",
+  "CI_MERGE_REQUEST_IID",
 ] as const satisfies Variable<string>[];
 
 type Variable<TName extends string> = TName | CustomVariable<TName>;
@@ -58,9 +64,12 @@ export const ENV_VARS_MAP = (() => {
     }
 
     if (IS_CI) {
-      obj[variable.name] = "pipeline" in variable ? variable.pipeline : () => Promise.resolve(env(variable.name));
+      obj[variable.name] =
+        "pipeline" in variable
+          ? variable.pipeline
+          : () => Promise.resolve(env(variable.name));
       continue;
-    } 
+    }
 
     obj[variable.name] = variable.local;
   }
@@ -72,24 +81,27 @@ export const ENV_VARS_MAP = (() => {
  * A map of the environment variable names to the type.
  */
 type EnvVarsMap = {
-  [key in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[key] extends string ? string : () => Promise<string>;
-}
+  [key in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[key] extends string
+    ? string
+    : () => Promise<string>;
+};
 
 /**
- * A map of the environment variable names to the metadata. This is a conversion of the {@link ENV_VAR_DECLARATIONS} 
+ * A map of the environment variable names to the metadata. This is a conversion of the {@link ENV_VAR_DECLARATIONS}
  * array to an object.
  */
-type EnvVarsDeclarationsMap = ArrayToObject<typeof ENV_VAR_DECLARATIONS>
+type EnvVarsDeclarationsMap = ArrayToObject<typeof ENV_VAR_DECLARATIONS>;
 
 /**
  * Converts an array to an object.
  */
 type ArrayToObject<T extends readonly any[]> = {
-  [P in T[number] as P extends string 
-    ? P                                // If it's a string, use it as the key.
-    : P extends { name: infer N } 
-      ? (N extends string ? N : never) // If it has a "name", use the name as the key.
-      : never
-  ]: P; // The value is the original type from the array.
+  [P in T[number] as P extends string
+    ? P // If it's a string, use it as the key.
+    : P extends { name: infer N }
+    ? N extends string
+      ? N
+      : never // If it has a "name", use the name as the key.
+    : never]: P; // The value is the original type from the array.
 };
 // #endregion
