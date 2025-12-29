@@ -22,7 +22,7 @@ export const env = (varName: string): string => {
 /**
  * An environment variable which has a custom implementation when running on a local machine.
  */
-export interface CustomVariableConfig<TName extends string, TResult = string> {
+export interface CustomVariableConfig<TName extends string, TResult> {
   name: TName;
   local: CustomVariableFn<TName, TResult>;
   pipeline: CustomVariableFn<TName, TResult>;
@@ -30,18 +30,35 @@ export interface CustomVariableConfig<TName extends string, TResult = string> {
 
 export type CustomVariableFn<TName extends string, TResult = string> = (config: CustomVariableConfig<TName, TResult>) => Promise<TResult>;
 
+export const createGetTypedEnvVarFromEnv =
+  <TCustomVariableType extends CustomVariableType>(type: TCustomVariableType) =>
+  async <TName extends string>(
+    config: CustomVariableConfig<TName, StringTypeToType<TCustomVariableType>>,
+  ): Promise<StringTypeToType<TCustomVariableType>> => {
+    const value = env(config.name);
+    return tryCastValue(value, type);
+  };
+
 /**
- * Gets the value of an environment variable from a custom configuration.
+ * Maps a custom variable type string to its corresponding TypeScript type.
+ * For example, "number" maps to number.
+ */
+type StringTypeToType<TCustomVariableType> = TCustomVariableType extends "number"
+  ? number
+  : TCustomVariableType extends "boolean"
+    ? boolean
+    : string;
+
+/**
+ * Gets the value of an environment variable from the environment.
  *
  * @param config The custom variable configuration.
  * @returns The value of the environment variable.
  */
-export const getEnvVarFromConfig = async <TName extends string, TResult = string>(
-  config: CustomVariableConfig<TName, TResult>,
-): Promise<TResult> => {
-  const variant = IS_CI ? "pipeline" : "local";
-  return await config[variant](config);
-};
+export const getEnvVarFromEnv = async <TName extends string>(config: CustomVariableConfig<TName, string>): Promise<string> =>
+  env(config.name);
+
+export type CustomVariableType = "string" | "number" | "boolean";
 
 /**
  * Creates a function that gets the value of an environment variable by executing a shell command.
@@ -52,4 +69,30 @@ export const getEnvVarFromConfig = async <TName extends string, TResult = string
 export const createGetEnvVarFromShell = (command: string) => async (): Promise<string> => {
   const output = await $`${command}`;
   return output.valueOf();
+};
+
+/**
+ * Cast a string value to the specified type.
+ */
+const tryCastValue = <T extends CustomVariableType | undefined>(
+  value: string | undefined,
+  type: T,
+): T extends "number" ? number : T extends "boolean" ? boolean : string => {
+  if (value === undefined) {
+    throw new Error(`Environment variable is undefined`);
+  }
+
+  // TypeScript can't prove branches return the correct type for the conditional,
+  // even though it does. We assert to satisfy the return type.
+  switch (type) {
+    case "number":
+      return Number(value) as any;
+    case "boolean":
+      return (value.toLowerCase() === "true") as any;
+    case undefined:
+    case "string":
+      return value as any;
+    default:
+      throw new Error(`Could not convert value "${value}" to type "${type}"`);
+  }
 };

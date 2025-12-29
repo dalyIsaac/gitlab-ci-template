@@ -6,10 +6,16 @@ import { SQUAWK_CONFIG, type SquawkCheck } from "./squawk-config.mts";
 jobMain(ALL_CI_PIPELINE_SOURCES, async ({ source, pipeline }) => {
   const preApprovalResults = await jobSection("Squawk Pre-Approval Checks", () => runMultipleChecks(SQUAWK_CONFIG.preApproval));
 
-  const postApprovalResults =
-    "CI_MERGE_REQUEST_APPROVED" in pipeline.env && pipeline.env.CI_MERGE_REQUEST_APPROVED
-      ? await jobSection("Squawk Post-Approval Checks", () => runMultipleChecks(SQUAWK_CONFIG.postApproval))
-      : [];
+  let postApprovalResults: SquawkCheckResult[] = [];
+
+  if ("CI_MERGE_REQUEST_APPROVED" in pipeline.env) {
+    const isApproved = await pipeline.env.CI_MERGE_REQUEST_APPROVED();
+    if (isApproved) {
+      postApprovalResults = await jobSection("Squawk Post-Approval Checks", () => runMultipleChecks(SQUAWK_CONFIG.postApproval));
+    } else {
+      jobLog("Merge request not approved; skipping post-approval checks.");
+    }
+  }
 
   // TODO: Summarize the results and post to the merge request.
 });

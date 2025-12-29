@@ -1,13 +1,20 @@
-import { createGetEnvVarFromShell, env, getEnvVarFromConfig, IS_CI, type CustomVariableConfig } from "./env/utils.mts";
+import {
+  createGetEnvVarFromShell,
+  createGetTypedEnvVarFromEnv,
+  env,
+  getEnvVarFromEnv,
+  IS_CI,
+  type CustomVariableConfig,
+} from "./env/utils.mts";
 
 // #region Pipeline environment variables.
 export function getPipelineEnvVars<TVarNames extends readonly (keyof EnvVarsMap)[]>(
   ...varNames: TVarNames
 ): PipelineEnvVarsRecord<TVarNames[number]> {
-  const record: Partial<EnvVarsMap> = {};
+  const record: Record<string, unknown> = {};
 
   for (const name of varNames) {
-    record[name] = ENV_VARS_MAP[name] as string & (() => Promise<string>);
+    record[name] = ENV_VARS_MAP[name];
   }
 
   return record as PipelineEnvVarsRecord<TVarNames[number]>;
@@ -24,15 +31,19 @@ const ENV_VAR_DECLARATIONS = [
   {
     name: "CI_COMMIT_REF_NAME",
     local: createGetEnvVarFromShell(`git rev-parse --abbrev-ref HEAD`),
-    pipeline: getEnvVarFromConfig,
+    pipeline: getEnvVarFromEnv,
   },
 
   // Merge request specific variables.
-  "CI_MERGE_REQUEST_APPROVED",
+  {
+    name: "CI_MERGE_REQUEST_APPROVED",
+    local: async () => false,
+    pipeline: createGetTypedEnvVarFromEnv("boolean"),
+  },
   "CI_MERGE_REQUEST_IID",
 ] as const satisfies Variable<string>[];
 
-type Variable<TName extends string> = TName | CustomVariableConfig<TName>;
+type Variable<TName extends string> = TName | CustomVariableConfig<TName, any>;
 
 /**
  * A map of {@link ENV_VAR_DECLARATIONS} names to the values or getter functions.
@@ -53,7 +64,7 @@ export const ENV_VARS_MAP = (() => {
     const variant = IS_CI ? "pipeline" : "local";
 
     // Cast to ignore ENV_VAR_DECLARATIONS being a readonly tuple.
-    const typedConfig = config as CustomVariableConfig<string>;
+    const typedConfig = config as CustomVariableConfig<string, any>;
 
     obj[config.name] = () => typedConfig[variant](config);
   }
@@ -65,8 +76,17 @@ export const ENV_VARS_MAP = (() => {
  * A map of the environment variable names to the type.
  */
 type EnvVarsMap = {
-  [key in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[key] extends string ? string : () => Promise<string>;
+  [key in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[key] extends string
+    ? string
+    : EnvVarsDeclarationsMap[key] extends CustomVariableConfig<string, infer R>
+      ? () => Promise<R>
+      : never;
 };
+
+/**
+ * Extract the result type from a CustomVariableConfig.
+ */
+type ExtractCustomVariableResult<T> = T extends CustomVariableConfig<string, infer R> ? R : never;
 
 /**
  * A map of the environment variable names to the metadata. This is a conversion of the {@link ENV_VAR_DECLARATIONS}
