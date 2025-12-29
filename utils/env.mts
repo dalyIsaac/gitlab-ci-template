@@ -1,3 +1,5 @@
+import { $ } from "zx";
+
 // Environment variables
 const IS_CI = process.env["GITLAB_CI"] === "true";
 
@@ -41,8 +43,7 @@ const ENV_VAR_DECLARATIONS = [
   "CI_PIPELINE_IID",
   {
     name: "CI_COMMIT_REF_NAME",
-    local: () => Promise.resolve("hello"),
-    // ($`git rev-parse --abbrev-ref HEAD`).stdout.trim();
+    local: () => $`git rev-parse --abbrev-ref HEAD`.then((res) => res.valueOf()),
   },
   {
     name: "TEST_PIPELINE",
