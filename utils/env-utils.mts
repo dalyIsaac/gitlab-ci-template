@@ -55,7 +55,7 @@ type StringTypeToType<TCustomVariableType> = TCustomVariableType extends "number
  * @param config The custom variable configuration.
  * @returns The value of the environment variable.
  */
-export const getEnvVarFromEnv = async <TName extends string>(config: VariableConfig<TName, string>): Promise<string> => env(config.name);
+export const getEnvVarFromConfigName = async <TName extends string>(config: VariableConfig<TName, string>): Promise<string> => env(config.name);
 
 export type CustomVariableType = "string" | "number" | "boolean";
 

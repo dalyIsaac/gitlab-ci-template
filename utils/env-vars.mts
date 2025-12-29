@@ -1,11 +1,18 @@
-import { createGetEnvVarFromShell, createGetTypedEnvVarFromEnv, env, getEnvVarFromEnv, IS_CI, type VariableConfig } from "./env-utils.mts";
+import {
+  createGetEnvVarFromShell,
+  createGetTypedEnvVarFromEnv,
+  env,
+  getEnvVarFromConfigName,
+  IS_CI,
+  type VariableConfig,
+} from "./env-utils.mts";
 
 const ENV_VAR_DECLARATIONS = [
   "CI_PIPELINE_IID",
   {
     name: "CI_COMMIT_REF_NAME",
     local: createGetEnvVarFromShell(`git rev-parse --abbrev-ref HEAD`),
-    pipeline: getEnvVarFromEnv,
+    pipeline: getEnvVarFromConfigName,
   },
 
   // Merge request specific variables.
