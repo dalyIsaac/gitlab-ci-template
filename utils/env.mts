@@ -1,24 +1,4 @@
-import { $ } from "zx";
-
-// Environment variables
-const IS_CI = process.env["GITLAB_CI"] === "true";
-
-/**
- * Gets the value of an environment variable.
- *
- * @param varName The name of the environment variable.
- * @returns The value of the environment variable.
- * @throws If the environment variable is not defined.
- */
-export const env = (varName: string): string => {
-  const value = process.env[varName];
-
-  if (value === undefined) {
-    throw new Error(`Environment variable "${varName}" is not defined.`);
-  }
-
-  return value;
-};
+import { createGetEnvVarFromShell, env, getEnvVarFromConfig, IS_CI, type CustomVariableConfig } from "./env/utils.mts";
 
 // #region Pipeline environment variables.
 export function getPipelineEnvVars<TVarNames extends readonly (keyof EnvVarsMap)[]>(
@@ -43,12 +23,8 @@ const ENV_VAR_DECLARATIONS = [
   "CI_PIPELINE_IID",
   {
     name: "CI_COMMIT_REF_NAME",
-    local: () => $`git rev-parse --abbrev-ref HEAD`.then((res) => res.valueOf()),
-  },
-  {
-    name: "TEST_PIPELINE",
-    local: () => Promise.resolve("TEST_PIPELINE"),
-    pipeline: () => Promise.resolve("TEST_PIPELINE"),
+    local: createGetEnvVarFromShell(`git rev-parse --abbrev-ref HEAD`),
+    pipeline: getEnvVarFromConfig,
   },
 
   // Merge request specific variables.
@@ -56,16 +32,7 @@ const ENV_VAR_DECLARATIONS = [
   "CI_MERGE_REQUEST_IID",
 ] as const satisfies Variable<string>[];
 
-type Variable<TName extends string> = TName | CustomVariable<TName>;
-
-/**
- * An environment variable which has a custom implementation when running on a local machine.
- */
-interface CustomVariable<TName extends string> {
-  name: TName;
-  local: () => Promise<string>;
-  pipeline?: () => Promise<string>;
-}
+type Variable<TName extends string> = TName | CustomVariableConfig<TName>;
 
 /**
  * A map of {@link ENV_VAR_DECLARATIONS} names to the values or getter functions.
@@ -73,18 +40,22 @@ interface CustomVariable<TName extends string> {
 export const ENV_VARS_MAP = (() => {
   const obj: Partial<EnvVarsMap> = {};
 
-  for (const variable of ENV_VAR_DECLARATIONS) {
-    if (typeof variable === "string") {
-      obj[variable] = env(variable);
+  for (const config of ENV_VAR_DECLARATIONS) {
+    // Simple string variable.
+    if (typeof config === "string") {
+      // Create a getter which always returns the env var.
+      Object.defineProperty(obj, config, {
+        get: () => env(config),
+      });
       continue;
     }
 
-    if (IS_CI) {
-      obj[variable.name] = "pipeline" in variable ? variable.pipeline : () => Promise.resolve(env(variable.name));
-      continue;
-    }
+    const variant = IS_CI ? "pipeline" : "local";
 
-    obj[variable.name] = variable.local;
+    // Cast to ignore ENV_VAR_DECLARATIONS being a readonly tuple.
+    const typedConfig = config as CustomVariableConfig<string>;
+
+    obj[config.name] = () => typedConfig[variant](config);
   }
 
   return obj as EnvVarsMap;
