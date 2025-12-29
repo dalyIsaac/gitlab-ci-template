@@ -1,17 +1,11 @@
-import {
-  createGetEnvVarFromShell,
-  createGetTypedEnvVarFromEnv,
-  env,
-  getEnvVarFromConfigName,
-  IS_CI,
-  type VariableConfig,
-} from "./env-utils.mts";
+import { $ } from "zx";
+import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type VariableConfig } from "./env-utils.mts";
 
 const ENV_VAR_DECLARATIONS = [
   "CI_PIPELINE_IID",
   {
     name: "CI_COMMIT_REF_NAME",
-    local: createGetEnvVarFromShell(`git rev-parse --abbrev-ref HEAD`),
+    local: () => $`git rev-parse --abbrev-ref HEAD`.then((r) => r.valueOf()),
     pipeline: getEnvVarFromConfigName,
   },
 

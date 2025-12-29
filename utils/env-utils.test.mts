@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createGetEnvVarFromShell, createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, type VariableConfig } from "./env-utils.mts";
+import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, type VariableConfig } from "./env-utils.mts";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -82,14 +82,6 @@ describe("createGetTypedEnvVarFromEnv", () => {
     };
     await expect(getTyped(cfg)).rejects.toThrow(/Environment variable \"MISSING_TYPED\" is not defined./);
   });
-});
-
-describe("createGetEnvVarFromShell", () => {
-  it("should execute command and return its output", async () => {
-    const getter = createGetEnvVarFromShell("echo hello");
-    const result = await getter();
-    expect(result.trim()).toBe("hello");
-  }, 10000);
 });
 
 describe("IS_CI", () => {

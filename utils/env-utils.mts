@@ -1,5 +1,3 @@
-import { $ } from "zx";
-
 export const IS_CI = process.env["GITLAB_CI"] === "true";
 
 /**
@@ -55,20 +53,10 @@ type StringTypeToType<TCustomVariableType> = TCustomVariableType extends "number
  * @param config The custom variable configuration.
  * @returns The value of the environment variable.
  */
-export const getEnvVarFromConfigName = async <TName extends string>(config: VariableConfig<TName, string>): Promise<string> => env(config.name);
+export const getEnvVarFromConfigName = async <TName extends string>(config: VariableConfig<TName, string>): Promise<string> =>
+  env(config.name);
 
 export type CustomVariableType = "string" | "number" | "boolean";
-
-/**
- * Creates a function that gets the value of an environment variable by executing a shell command.
- *
- * @param command The shell command to execute.
- * @returns A function that executes the command and returns the output as a string.
- */
-export const createGetEnvVarFromShell = (command: string) => async (): Promise<string> => {
-  const output = await $`${command}`;
-  return output.valueOf();
-};
 
 /**
  * Cast a string value to the specified type.
