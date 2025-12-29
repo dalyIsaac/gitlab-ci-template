@@ -1,7 +1,22 @@
 // Environment variables
 const IS_CI = process.env["GITLAB_CI"] === "true";
 
-export const env = (arg: string): string => "unknown";
+/**
+ * Gets the value of an environment variable.
+ *
+ * @param varName The name of the environment variable.
+ * @returns The value of the environment variable.
+ * @throws If the environment variable is not defined.
+ */
+export const env = (varName: string): string => {
+  const value = process.env[varName];
+
+  if (value === undefined) {
+    throw new Error(`Environment variable "${varName}" is not defined.`);
+  }
+
+  return value;
+};
 
 // #region Pipeline environment variables.
 export function getPipelineEnvVars<TVarNames extends readonly (keyof EnvVarsMap)[]>(
