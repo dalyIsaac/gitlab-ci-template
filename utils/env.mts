@@ -7,25 +7,6 @@ import {
   type CustomVariableConfig,
 } from "./env/utils.mts";
 
-// #region Pipeline environment variables.
-export function getPipelineEnvVars<TVarNames extends readonly (keyof EnvVarsMap)[]>(
-  ...varNames: TVarNames
-): PipelineEnvVarsRecord<TVarNames[number]> {
-  const record: Record<string, unknown> = {};
-
-  for (const name of varNames) {
-    record[name] = ENV_VARS_MAP[name];
-  }
-
-  return record as PipelineEnvVarsRecord<TVarNames[number]>;
-}
-
-type PipelineEnvVarsRecord<TVarNames extends keyof EnvVarsMap> = {
-  [key in TVarNames]: EnvVarsMap[key];
-};
-// #endregion
-
-// #region Environment variable declarations.
 const ENV_VAR_DECLARATIONS = [
   "CI_PIPELINE_IID",
   {
@@ -73,6 +54,31 @@ export const ENV_VARS_MAP = (() => {
 })();
 
 /**
+ * Gets all the variables specified in {@link varNames} from the pipeline environment.
+ *
+ * @param varNames The names of the environment variables to get.
+ * @returns An object mapping the variable names to their values or getters.
+ */
+export function getPipelineEnvVars<TVarNames extends readonly (keyof EnvVarsMap)[]>(
+  ...varNames: TVarNames
+): PipelineEnvVarsRecord<TVarNames[number]> {
+  const record: Record<string, unknown> = {};
+
+  for (const name of varNames) {
+    record[name] = ENV_VARS_MAP[name];
+  }
+
+  return record as PipelineEnvVarsRecord<TVarNames[number]>;
+}
+
+/**
+ * A record mapping environment variable names to their types.
+ */
+type PipelineEnvVarsRecord<TVarNames extends keyof EnvVarsMap> = {
+  [key in TVarNames]: EnvVarsMap[key];
+};
+
+/**
  * A map of the environment variable names to the type.
  */
 type EnvVarsMap = {
@@ -82,11 +88,6 @@ type EnvVarsMap = {
       ? () => Promise<R>
       : never;
 };
-
-/**
- * Extract the result type from a CustomVariableConfig.
- */
-type ExtractCustomVariableResult<T> = T extends CustomVariableConfig<string, infer R> ? R : never;
 
 /**
  * A map of the environment variable names to the metadata. This is a conversion of the {@link ENV_VAR_DECLARATIONS}
@@ -106,4 +107,3 @@ type ArrayToObject<T extends readonly any[]> = {
         : never // If it has a "name", use the name as the key.
       : never]: P; // The value is the original type from the array.
 };
-// #endregion
