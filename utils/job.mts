@@ -18,23 +18,41 @@ interface JobMainArg<TSource extends keyof typeof PIPELINE_CONFIGS> {
   pipeline: (typeof PIPELINE_CONFIGS)[TSource];
 }
 
+/**
+ * Used to track the stack depth for nested job sections.
+ */
+let nesting = 0;
+
 const SEPARATOR = "================================";
 
-export const jobSection = async (name: string, fn: () => Promise<void>) => {
+export async function jobSection(name: string, fn: () => Promise<void>) {
+  nesting += 1;
+
   const startTime = Date.now();
 
-  console.log(SEPARATOR);
-  console.log(`Starting job section: ${name}`);
-  console.log(`Start time: ${new Date(startTime).toISOString()}`);
-  console.log(SEPARATOR);
+  jobLog(SEPARATOR);
+  jobLog(`Starting job section: ${name}`);
+  jobLog(`Start time: ${new Date(startTime).toISOString()}`);
+  jobLog(SEPARATOR);
 
   await fn();
 
-  console.log(SEPARATOR);
+  jobLog(SEPARATOR);
   const endTime = Date.now();
-  console.log(`Finished job section: ${name}`);
-  console.log(`End time: ${new Date(endTime).toISOString()}`);
-  console.log(`Duration: ${(endTime - startTime) / 1000} seconds`);
-  console.log(SEPARATOR);
-  console.log("\n");
-};
+  jobLog(`Finished job section: ${name}`);
+  jobLog(`End time: ${new Date(endTime).toISOString()}`);
+  jobLog(`Duration: ${(endTime - startTime) / 1000} seconds`);
+  jobLog(SEPARATOR);
+  jobLog("\n");
+
+  nesting -= 1;
+}
+
+/**
+ * Log a message with indentation based on the current nesting level.
+ * The nesting level increases with each job section.
+ *
+ * @param message The message to log.
+ */
+export const jobLog = (message: string): void =>
+  console.log(`${"  ".repeat(nesting)}${message}`);
