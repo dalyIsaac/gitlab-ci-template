@@ -67,4 +67,9 @@ export async function jobSection<TResult>(name: string, fn: () => Promise<TResul
  *
  * @param message The message to log.
  */
-export const jobLog = (message: string): void => console.log(`${"  ".repeat(nesting)}${message}`);
+export const jobLog = (message: string): void => {
+  const messageLines = message.split("\n");
+  for (const line of messageLines) {
+    console.log(`${"  ".repeat(nesting)}${line}`);
+  }
+};

@@ -18,6 +18,7 @@ jobMain(ALL_CI_PIPELINE_SOURCES, async ({ source, pipeline }) => {
   }
 
   // TODO: Summarize the results and post to the merge request.
+  const
 });
 
 async function runMultipleChecks(checks: SquawkCheck[]): Promise<SquawkCheckResult[]> {
