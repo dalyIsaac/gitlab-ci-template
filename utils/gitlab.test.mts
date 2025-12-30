@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createUpdatedMergeRequestDescriptionWithSection } from "./gitlab.mts";
+import { createMergeRequestDescriptionSectionRegex, createUpdatedMergeRequestDescriptionWithSection } from "./gitlab.mts";
 
 describe("createUpdatedMergeRequestDescriptionWithSection", () => {
   it("should add a new section when none exists", () => {
@@ -176,5 +176,209 @@ describe("createUpdatedMergeRequestDescriptionWithSection", () => {
     // Then
     const expected = "Start\n\n" + "<!-- SECTION: Test -->\n" + "New content\n" + "<!-- END SECTION: Test -->";
     expect(result).toBe(expected);
+  });
+});
+
+describe("createMergeRequestDescriptionSectionRegex", () => {
+  it.each([
+    [
+      "Test Section",
+      "Some text before\n\n<!-- SECTION: Test Section -->\nSection content\n<!-- END SECTION: Test Section -->\n\nSome text after",
+    ],
+    ["Results", "<!-- SECTION: Results -->\nContent here\n<!-- END SECTION: Results -->"],
+    ["Empty Section", "<!-- SECTION: Empty Section -->\n<!-- END SECTION: Empty Section -->"],
+    ["Code", "<!-- SECTION: Code -->\nconst x = 1;\n<!-- END SECTION: Code -->"],
+  ])("should match a section with title: %s", (sectionTitle, description) => {
+    // When
+    const regex = createMergeRequestDescriptionSectionRegex(sectionTitle);
+
+    // Then
+    expect(regex.test(description)).toBe(true);
+  });
+
+  it.each([
+    ["Test Section", "<!-- SECTION: Different Section -->\nContent\n<!-- END SECTION: Different Section -->"],
+    ["Results", "<!-- SECTION: NotResults -->\nContent\n<!-- END SECTION: NotResults -->"],
+    ["MySection", "Some text without any section markers"],
+  ])("should not match when section title does not exist: %s", (sectionTitle, description) => {
+    // When
+    const regex = createMergeRequestDescriptionSectionRegex(sectionTitle);
+
+    // Then
+    expect(regex.test(description)).toBe(false);
+  });
+
+  it("should match and capture section content", () => {
+    // Given
+    const sectionTitle = "Test Section";
+    const description = "<!-- SECTION: Test Section -->\n" + "Section content\n" + "<!-- END SECTION: Test Section -->";
+    const regex = createMergeRequestDescriptionSectionRegex(sectionTitle);
+
+    // When
+    const match = description.match(regex);
+
+    // Then
+    expect(match).not.toBeNull();
+    expect(match![0]).toContain("Section content");
+  });
+
+  it("should match multiline content within a section", () => {
+    // Given
+    const sectionTitle = "Results";
+    const description = "<!-- SECTION: Results -->\n" + "Line 1\n" + "Line 2\n" + "Line 3\n" + "<!-- END SECTION: Results -->";
+
+    // When
+    const regex = createMergeRequestDescriptionSectionRegex(sectionTitle);
+
+    // Then
+    expect(regex.test(description)).toBe(true);
+    const match = description.match(regex);
+    expect(match![0]).toContain("Line 1");
+    expect(match![0]).toContain("Line 2");
+    expect(match![0]).toContain("Line 3");
+  });
+
+  it("should match section with empty content", () => {
+    // Given
+    const sectionTitle = "Empty Section";
+    const description = "<!-- SECTION: Empty Section -->\n" + "<!-- END SECTION: Empty Section -->";
+
+    // When
+    const regex = createMergeRequestDescriptionSectionRegex(sectionTitle);
+
+    // Then
+    expect(regex.test(description)).toBe(true);
+  });
+
+  it("should use global flag for matching multiple sections", () => {
+    // Given
+    const sectionTitle = "Repeating";
+    const description =
+      "<!-- SECTION: Repeating -->\n" +
+      "First\n" +
+      "<!-- END SECTION: Repeating -->\n\n" +
+      "<!-- SECTION: Repeating -->\n" +
+      "Second\n" +
+      "<!-- END SECTION: Repeating -->";
+
+    // When
+    const regex = createMergeRequestDescriptionSectionRegex(sectionTitle);
+    const matches = description.match(regex);
+
+    // Then
+    expect(matches).not.toBeNull();
+    expect(matches!.length).toBe(2);
+  });
+
+  it("should use non-greedy matching to match shortest content", () => {
+    // Given
+    const sectionTitle = "Test";
+    const description =
+      "<!-- SECTION: Test -->\n" +
+      "Content 1\n" +
+      "<!-- END SECTION: Test -->\n\n" +
+      "<!-- SECTION: Test -->\n" +
+      "Content 2\n" +
+      "<!-- END SECTION: Test -->";
+
+    // When
+    const regex = createMergeRequestDescriptionSectionRegex(sectionTitle);
+    const matches = description.match(regex);
+
+    // Then
+    expect(matches!.length).toBe(2);
+    expect(matches![0]).not.toContain("Content 2");
+    expect(matches![1]).not.toContain("Content 1");
+  });
+
+  it.each(["const x = /[a-z]+/g;", "console.log('(test)');", "if (x > 0 && y < 10) {}", "match: [a-z]{2,5}"])(
+    "should match content with special regex characters: %s",
+    (content) => {
+      // Given
+      const sectionTitle = "Code";
+      const description = `<!-- SECTION: ${sectionTitle} -->\n` + `${content}\n` + `<!-- END SECTION: ${sectionTitle} -->`;
+
+      // When
+      const regex = createMergeRequestDescriptionSectionRegex(sectionTitle);
+
+      // Then
+      expect(regex.test(description)).toBe(true);
+      const match = description.match(regex);
+      expect(match![0]).toContain(content);
+    },
+  );
+
+  it("should match section with leading and trailing whitespace", () => {
+    // Given
+    const sectionTitle = "Whitespace";
+    const description =
+      "<!-- SECTION: Whitespace -->\n" + "  Content with spaces  \n" + "  More content\n" + "<!-- END SECTION: Whitespace -->";
+
+    // When
+    const regex = createMergeRequestDescriptionSectionRegex(sectionTitle);
+
+    // Then
+    expect(regex.test(description)).toBe(true);
+    const match = description.match(regex);
+    expect(match![0]).toContain("Content with spaces");
+  });
+
+  it.each([
+    "<!-- SECTION: Test \nContent\n<!-- END SECTION: Test",
+    "<!-- SECTION: Test -->\nContent",
+    "Content\n<!-- END SECTION: Test -->",
+  ])("should not match partial section markers: %s", (description) => {
+    // When
+    const regex = createMergeRequestDescriptionSectionRegex("Test");
+
+    // Then
+    expect(regex.test(description)).toBe(false);
+  });
+
+  it("should match section with newlines at the end before marker", () => {
+    // Given
+    const sectionTitle = "Section";
+    const description = "<!-- SECTION: Section -->\n" + "Content\n\n\n" + "<!-- END SECTION: Section -->";
+
+    // When
+    const regex = createMergeRequestDescriptionSectionRegex(sectionTitle);
+
+    // Then
+    expect(regex.test(description)).toBe(true);
+    const match = description.match(regex);
+    expect(match![0]).toContain("Content");
+  });
+
+  it("should handle section title case sensitivity", () => {
+    // Given
+    const sectionTitle = "Test";
+    const description = "<!-- SECTION: test -->\n" + "Content\n" + "<!-- END SECTION: test -->";
+
+    // When
+    const regex = createMergeRequestDescriptionSectionRegex(sectionTitle);
+
+    // Then
+    expect(regex.test(description)).toBe(false);
+  });
+
+  it("should replace matched section content using regex", () => {
+    // Given
+    const sectionTitle = "Update";
+    const originalDescription =
+      "Before\n\n" + "<!-- SECTION: Update -->\n" + "Old content\n" + "<!-- END SECTION: Update -->\n\n" + "After";
+    const newContent = "New content";
+
+    // When
+    const regex = createMergeRequestDescriptionSectionRegex(sectionTitle);
+    const result = originalDescription.replace(
+      regex,
+      `<!-- SECTION: ${sectionTitle} -->\n${newContent}\n<!-- END SECTION: ${sectionTitle} -->`,
+    );
+
+    // Then
+    expect(result).toContain("New content");
+    expect(result).not.toContain("Old content");
+    expect(result).toContain("Before");
+    expect(result).toContain("After");
   });
 });
