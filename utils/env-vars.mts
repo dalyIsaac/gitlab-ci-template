@@ -5,7 +5,10 @@ const ENV_VAR_DECLARATIONS = [
   "CI_PIPELINE_IID",
   {
     name: "CI_COMMIT_REF_NAME",
-    local: () => $`git rev-parse --abbrev-ref HEAD`.then((r) => r.valueOf()),
+    local: async () => {
+      const output = await $`git rev-parse --abbrev-ref HEAD`;
+      return output.valueOf();
+    },
     pipeline: getEnvVarFromConfigName,
   },
 
