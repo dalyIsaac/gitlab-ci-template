@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { $ } from "zx";
 import type { SquawkConfig } from "./squawk-config.mts";
 import type { SquawkCheckResult, UserInputResult } from "./squawk-utils.mts";
 import { getExistingResultsTable, runAllChecks, summarizeCheckResults } from "./squawk-utils.mts";
@@ -138,7 +139,7 @@ describe("runAllChecks", () => {
       preApproval: [
         {
           name: "All commits are GPG signed",
-          script: "echo hello",
+          script: () => $`echo hello`,
         },
         {
           name: "Developer has reviewed their changes",
@@ -146,13 +147,13 @@ describe("runAllChecks", () => {
         },
         {
           name: "Developer has updated merge request description",
-          script: "echo hello",
+          script: () => $`echo hello`,
         },
       ],
       postApproval: [
         {
           name: "Has run System Tests on the branch HEAD",
-          script: "echo hello",
+          script: () => $`echo hello`,
         },
       ],
     };
@@ -178,7 +179,7 @@ describe("runAllChecks", () => {
       preApproval: [
         {
           name: "All commits are GPG signed",
-          script: "echo hello",
+          script: () => $`echo hello`,
         },
         {
           name: "Developer has reviewed their changes",
@@ -186,13 +187,13 @@ describe("runAllChecks", () => {
         },
         {
           name: "Developer has updated merge request description",
-          script: "echo hello",
+          script: () => $`echo hello`,
         },
       ],
       postApproval: [
         {
           name: "Has run System Tests on the branch HEAD",
-          script: "echo hello",
+          script: () => $`echo hello`,
         },
       ],
     };
@@ -219,7 +220,7 @@ describe("runAllChecks", () => {
       preApproval: [
         {
           name: "All commits are GPG signed",
-          script: "echo hello",
+          script: () => $`echo hello`,
         },
         {
           name: "Developer has reviewed their changes",
@@ -227,13 +228,13 @@ describe("runAllChecks", () => {
         },
         {
           name: "Developer has updated merge request description",
-          script: "echo hello",
+          script: () => $`echo hello`,
         },
       ],
       postApproval: [
         {
           name: "Has run System Tests on the branch HEAD",
-          script: "echo hello",
+          script: () => $`echo hello`,
         },
       ],
     };

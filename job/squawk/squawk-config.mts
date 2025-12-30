@@ -1,8 +1,10 @@
+import { $, type ProcessPromise } from "zx";
+
 export const SQUAWK_CONFIG: SquawkConfig = {
   preApproval: [
     {
       name: "All commits are GPG signed",
-      script: "check-gpg.mts",
+      script: () => $`check-gpg.mts`,
     },
     {
       name: "Developer has reviewed their changes",
@@ -10,13 +12,13 @@ export const SQUAWK_CONFIG: SquawkConfig = {
     },
     {
       name: "Developer has updated merge request description",
-      script: "check-mr-description.mts",
+      script: () => $`check-mr-description.mts`,
     },
   ],
   postApproval: [
     {
       name: "Has run System Tests on the branch HEAD",
-      script: "check-system-tests.mts",
+      script: () => $`check-system-tests.mts`,
     },
   ],
 };
@@ -40,8 +42,9 @@ export interface SquawkCheck {
 
   /**
    * The script to run for this check. If this is specified, then {@link userInputType} is ignored.
+   * This should throw an error if the check fails.
    */
-  script?: string;
+  script?: () => Promise<void> | ProcessPromise;
 
   /**
    * Whether this check can be ignored by the user and CI.

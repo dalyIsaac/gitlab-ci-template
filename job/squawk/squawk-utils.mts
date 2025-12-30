@@ -1,4 +1,3 @@
-import { $ } from "zx";
 import { createMergeRequestDescriptionSectionRegex } from "../../utils/gitlab.mts";
 import { jobLog } from "../../utils/job.mts";
 import { createMarkdownTable } from "../../utils/markdown.mts";
@@ -138,7 +137,7 @@ export interface SquawkCheckResult {
  */
 async function runCheck(check: SquawkCheck, userInputResults: UserInputResult[]): Promise<SquawkCheckResult> {
   if (check.script) {
-    await $`${check.script}`;
+    await check.script();
     return { check, passed: true };
   }
 
