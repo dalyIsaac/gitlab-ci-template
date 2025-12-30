@@ -78,7 +78,7 @@ export function getPipelineEnvVars<TVarNames extends readonly (keyof EnvVarsMap)
 }
 
 /**
- * Gets all environment variables that have a `local` field in their declaration.
+ * Gets the local variants of all environment variables defined in {@link ENV_VAR_DECLARATIONS}.
  *
  * @returns An object mapping the variable names to their values or getters.
  */

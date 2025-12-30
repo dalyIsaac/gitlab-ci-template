@@ -18,15 +18,14 @@ build_job:
 
 ## Environment Variables
 
-Environment variables are automatically made safe for different execution contexts (CI pipeline vs. local development):
+Environment variables are automatically made safe for different execution contexts:
 
 - **In CI**: Environment variables are read directly from the GitLab CI environment.
-- **Locally**: Safe fallback implementations can be provided. These are asynchronous functions that mimic the CI environment. For example:
-  - `CI_COMMIT_REF_NAME`: Uses `git rev-parse --abbrev-ref HEAD` to get the current branch
-  - `CI_MERGE_REQUEST_APPROVED`: Returns `false` (no approval in local context)
-  - `CI_MERGE_REQUEST_IID`: Returns `1` (placeholder for local testing)
+- **Locally**: Safe fallback implementations can be provided. These are asynchronous functions that mimic the CI environment.
 
-If an environment variable is not available in either context, an error is thrown to prevent silent failures.
+Environment variables are defined in [`utils/env-vars.mts`](utils/env-vars.mts), and pipelines define what variables are available in [`utils/pipeline.mts`](utils/pipeline.mts).
+
+If an environment variable is not available, an error will be thrown. Environment variables are accessed via the `pipeline.env` object inside a `jobMain` - see the [example below](#example-job).
 
 ## Example Job
 
@@ -48,9 +47,11 @@ jobMain(["merge_request_event", "push"], async ({ source, pipeline }) => {
 });
 ```
 
+Also see [job/example-job.mts](job/example-job.mts) for a complete example.
+
 ## Squawk
 
-Squawk is a merge request quality gate system that enforces a series of checks before and after a merge request is approved.
+[Squawk](job/squawk/squawk-job.mts) is a merge request quality gate system that enforces a series of checks before and after a merge request is approved.
 
 ### Features
 
@@ -62,6 +63,7 @@ Squawk is a merge request quality gate system that enforces a series of checks b
 - **Markdown reporting**: Results are documented in the merge request description in a markdown table.
 - **Flexible check configuration**: Define custom checks with scripts or user input requirements.
 - **Ignorable checks**: Mark checks as optional (`canIgnore: true`) to allow graceful degradation.
+- **User input handling**: Requires user confirmation in the squawk report of the merge request description.
 
 ### Configuration
 
