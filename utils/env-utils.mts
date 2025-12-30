@@ -3,14 +3,21 @@ export const IS_CI = process.env["GITLAB_CI"] === "true";
 /**
  * Gets the value of an environment variable.
  *
+ * **This should not be used outside of pipeline, env-vars, or env-utils modules.**
+ *
  * @param varName The name of the environment variable.
+ * @param fallback The fallback value if the environment variable is not defined.
  * @returns The value of the environment variable.
  * @throws If the environment variable is not defined.
  */
-export const env = (varName: string): string => {
+export const env = (varName: string, fallback?: string): string => {
   const value = process.env[varName];
 
   if (value === undefined) {
+    if (fallback !== undefined) {
+      return fallback;
+    }
+
     throw new Error(`Environment variable "${varName}" is not defined.`);
   }
 

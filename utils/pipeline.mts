@@ -5,8 +5,8 @@ import { ENV_VARS_MAP, getLocalEnvVars, getPipelineEnvVars } from "./env-vars.mt
 const COMMON_CI_ENV_VARS = ["CI_PROJECT_ID", "CI_COMMIT_REF_NAME", "CI_PIPELINE_IID"] as const;
 
 const api = new Gitlab({
-  host: env("CI_API_V4_URL"),
-  jobToken: env("CI_JOB_TOKEN"),
+  host: env("CI_API_V4_URL", "https://gitlab.example.com"),
+  jobToken: env("CI_JOB_TOKEN", "Placeholder job token"),
 });
 
 /**
