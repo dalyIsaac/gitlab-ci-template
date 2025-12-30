@@ -14,7 +14,7 @@ const api = new Gitlab({
  */
 export const PIPELINE_CONFIGS = {
   merge_request_event: {
-    env: getPipelineEnvVars(...COMMON_CI_ENV_VARS, "CI_MERGE_REQUEST_APPROVED"),
+    env: getPipelineEnvVars(...COMMON_CI_ENV_VARS, "CI_MERGE_REQUEST_APPROVED", "CI_MERGE_REQUEST_IID"),
     api,
   },
   push: {
