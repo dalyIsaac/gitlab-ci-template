@@ -1,7 +1,13 @@
+import { Gitlab } from "@gitbeaker/rest";
 import { env } from "./env-utils.mts";
 import { ENV_VARS_MAP, getPipelineEnvVars } from "./env-vars.mts";
 
 const COMMON_ENV_VARS = ["CI_COMMIT_REF_NAME", "CI_PIPELINE_IID"] as const;
+
+const api = new Gitlab({
+  host: env("CI_API_V4_URL"),
+  jobToken: env("CI_JOB_TOKEN"),
+});
 
 /**
  * The configurations for different pipeline sources.
@@ -9,17 +15,23 @@ const COMMON_ENV_VARS = ["CI_COMMIT_REF_NAME", "CI_PIPELINE_IID"] as const;
 export const PIPELINE_CONFIGS = {
   merge_request_event: {
     env: getPipelineEnvVars(...COMMON_ENV_VARS, "CI_MERGE_REQUEST_APPROVED"),
+    api,
   },
   push: {
     env: getPipelineEnvVars(...COMMON_ENV_VARS),
+    api,
   },
-  local: { env: {} },
+  local: {
+    env: {},
+    api,
+  },
 } as const satisfies Partial<PipelineConfigMap>;
 
 type PipelineConfigMap = Record<CI_PIPELINE_SOURCE, PipelineConfig>;
 
 interface PipelineConfig {
   env: Partial<typeof ENV_VARS_MAP>;
+  api: InstanceType<typeof Gitlab>;
 }
 
 /**

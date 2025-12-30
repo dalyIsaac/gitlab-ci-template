@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/dalyIsaac/gitlab-ci-template#readme",
   "dependencies": {
+    "@gitbeaker/rest": "^43.8.0",
     "zx": "^8.8.5"
   },
   "devDependencies": {
