@@ -16,7 +16,7 @@ export const PIPELINE_CONFIGS = {
   local: { env: {} },
 } as const satisfies Partial<PipelineConfigMap>;
 
-type PipelineConfigMap = Record<CI_PIPELINE_SOURCE | "local", PipelineConfig>;
+type PipelineConfigMap = Record<CI_PIPELINE_SOURCE, PipelineConfig>;
 
 interface PipelineConfig {
   env: Partial<typeof ENV_VARS_MAP>;
@@ -25,7 +25,7 @@ interface PipelineConfig {
 /**
  * A subset of the possible CI_PIPELINE_SOURCE values from https://docs.gitlab.com/ci/jobs/job_rules/#ci_pipeline_source-predefined-variable.
  */
-export const ALL_CI_PIPELINE_SOURCES = ["merge_request_event", "push"] as const;
+export const ALL_CI_PIPELINE_SOURCES = ["merge_request_event", "push", "local"] as const;
 
 /**
  * A subset of the possible CI_PIPELINE_SOURCE values from https://docs.gitlab.com/ci/jobs/job_rules/#ci_pipeline_source-predefined-variable.

@@ -1,5 +1,11 @@
 import { type CI_PIPELINE_SOURCE, getPipelineSource, PIPELINE_CONFIGS } from "./pipeline.mts";
 
+/**
+ * The main function for a job, handling pipeline source validation and setup.
+ *
+ * @param sources Accepted pipeline sources.
+ * @param fn The main function to execute for the job.
+ */
 export async function jobMain<TSources extends readonly CI_PIPELINE_SOURCE[] = readonly CI_PIPELINE_SOURCE[]>(
   sources: TSources,
   fn: (arg: JobMainArg<TSources[number]>) => Promise<void>,
@@ -7,11 +13,19 @@ export async function jobMain<TSources extends readonly CI_PIPELINE_SOURCE[] = r
   const source = getPipelineSource(...sources);
   const pipeline = PIPELINE_CONFIGS[source];
 
-  return await fn({ source, pipeline });
+  await fn({ source, pipeline });
 }
 
 interface JobMainArg<TSource extends keyof typeof PIPELINE_CONFIGS> {
+  /**
+   * The current pipeline source. For more, see {@link CI_PIPELINE_SOURCE}.
+   */
   source: TSource;
+
+  /**
+   * The pipeline configuration for the current source. The configuration will include the environment
+   * variables available for this source.
+   */
   pipeline: (typeof PIPELINE_CONFIGS)[TSource];
 }
 
