@@ -35,3 +35,50 @@ jobMain(["merge_request_event", "push"], async ({ source, pipeline }) => {
   });
 });
 ```
+
+## Squawk
+
+Squawk is a merge request quality gate system that enforces a series of checks before and after a merge request is approved.
+
+### Features
+
+- **Pre-approval checks**: Executed before the merge request is approved.
+  - Can include automated scripts (GPG signature verification, description validation, etc.).
+  - Can include user input requirements (boolean or string types).
+- **Post-approval checks**: Executed only after the merge request is approved.
+  - Typically used for integration tests or deployment preparation checks.
+- **Markdown reporting**: Results are documented in the merge request description in a markdown table.
+- **Flexible check configuration**: Define custom checks with scripts or user input requirements.
+- **Ignorable checks**: Mark checks as optional (`canIgnore: true`) to allow graceful degradation.
+
+### Configuration
+
+Configure squawk checks in `job/squawk/squawk-config.mts`:
+
+```typescript
+export const SQUAWK_CONFIG: SquawkConfig = {
+  preApproval: [
+    {
+      name: "All commits are GPG signed",
+      script: () => $`check-gpg.mts`,
+    },
+    {
+      name: "Developer has reviewed their changes",
+      userInputType: "boolean",
+    },
+  ],
+  postApproval: [
+    {
+      name: "Has run System Tests",
+      script: () => $`check-system-tests.mts`,
+    },
+  ],
+};
+```
+
+Each check can have:
+
+- `name`: Human-readable check name.
+- `script`: Optional function that executes a check (returns `ProcessPromise`).
+- `userInputType`: Optional "boolean" or "string" for manual approval.
+- `canIgnore`: Optional boolean to allow the check to fail without blocking the MR.
