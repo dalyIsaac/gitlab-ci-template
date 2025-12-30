@@ -16,6 +16,18 @@ build_job:
     - node job/example-job.mts
 ```
 
+## Environment Variables
+
+Environment variables are automatically made safe for different execution contexts (CI pipeline vs. local development):
+
+- **In CI**: Environment variables are read directly from the GitLab CI environment.
+- **Locally**: Safe fallback implementations can be provided. These are asynchronous functions that mimic the CI environment. For example:
+  - `CI_COMMIT_REF_NAME`: Uses `git rev-parse --abbrev-ref HEAD` to get the current branch
+  - `CI_MERGE_REQUEST_APPROVED`: Returns `false` (no approval in local context)
+  - `CI_MERGE_REQUEST_IID`: Returns `1` (placeholder for local testing)
+
+If an environment variable is not available in either context, an error is thrown to prevent silent failures.
+
 ## Example Job
 
 ```typescript
