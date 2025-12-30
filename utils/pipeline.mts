@@ -1,6 +1,6 @@
 import { Gitlab } from "@gitbeaker/rest";
 import { env } from "./env-utils.mts";
-import { ENV_VARS_MAP, getPipelineEnvVars } from "./env-vars.mts";
+import { ENV_VARS_MAP, getLocalEnvVars, getPipelineEnvVars } from "./env-vars.mts";
 
 const COMMON_CI_ENV_VARS = ["CI_PROJECT_ID", "CI_COMMIT_REF_NAME", "CI_PIPELINE_IID"] as const;
 
@@ -22,7 +22,7 @@ export const PIPELINE_CONFIGS = {
     api,
   },
   local: {
-    env: {},
+    env: getLocalEnvVars(),
     api,
   },
 } as const satisfies Partial<PipelineConfigMap>;

@@ -78,6 +78,32 @@ export function getPipelineEnvVars<TVarNames extends readonly (keyof EnvVarsMap)
 }
 
 /**
+ * Gets all environment variables that have a `local` field in their declaration.
+ *
+ * @returns An object mapping the variable names to their values or getters.
+ */
+export function getLocalEnvVars(): PipelineEnvVarsRecord<LocalVarNames> {
+  const localVarNames: LocalVarNames[] = [];
+
+  for (const config of ENV_VAR_DECLARATIONS) {
+    if (typeof config === "string") {
+      // Include simple string variables
+      localVarNames.push(config as LocalVarNames);
+    } else if ("local" in config) {
+      // Include variables with a local field
+      localVarNames.push(config.name as LocalVarNames);
+    }
+  }
+
+  return getPipelineEnvVars(...localVarNames);
+}
+
+/**
+ * The names of all environment variables that are available locally (either as simple strings or with a `local` field).
+ */
+type LocalVarNames = keyof EnvVarsDeclarationsMap;
+
+/**
  * A record mapping environment variable names to their types.
  */
 type PipelineEnvVarsRecord<TVarNames extends keyof EnvVarsMap> = {

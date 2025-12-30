@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ENV_VARS_MAP, getPipelineEnvVars } from "./env-vars.mts";
+import { ENV_VARS_MAP, getLocalEnvVars, getPipelineEnvVars } from "./env-vars.mts";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -177,6 +177,162 @@ describe("getPipelineEnvVars", () => {
       const _functionType: () => Promise<boolean> = result.CI_MERGE_REQUEST_APPROVED;
       expect(typeof result.CI_PIPELINE_IID).toBe("string");
       expect(typeof result.CI_MERGE_REQUEST_APPROVED).toBe("function");
+    });
+  });
+});
+
+describe("getLocalEnvVars", () => {
+  describe("Variable collection", () => {
+    it("should include all simple string variables", () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+
+      // Then
+      expect(result).toHaveProperty("CI_PROJECT_ID");
+      expect(result).toHaveProperty("CI_PIPELINE_IID");
+    });
+
+    it("should include all variables with a local field", () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+
+      // Then
+      expect(result).toHaveProperty("CI_COMMIT_REF_NAME");
+      expect(result).toHaveProperty("CI_MERGE_REQUEST_APPROVED");
+      expect(result).toHaveProperty("CI_MERGE_REQUEST_IID");
+    });
+
+    it("should return an object with all expected local variables", () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+
+      // Then
+      const expectedVariables = [
+        "CI_PROJECT_ID",
+        "CI_PIPELINE_IID",
+        "CI_COMMIT_REF_NAME",
+        "CI_MERGE_REQUEST_APPROVED",
+        "CI_MERGE_REQUEST_IID",
+      ];
+      expect(Object.keys(result).sort()).toEqual(expectedVariables.sort());
+    });
+  });
+
+  describe("Variable types", () => {
+    it("should return string values for simple string variables", () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+
+      // Then
+      expect(result.CI_PROJECT_ID).toBe("12345");
+      expect(result.CI_PIPELINE_IID).toBe("789");
+      expect(typeof result.CI_PROJECT_ID).toBe("string");
+      expect(typeof result.CI_PIPELINE_IID).toBe("string");
+    });
+
+    it("should return getter functions for variables with local field", () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+
+      // Then
+      expect(typeof result.CI_COMMIT_REF_NAME).toBe("function");
+      expect(typeof result.CI_MERGE_REQUEST_APPROVED).toBe("function");
+      expect(typeof result.CI_MERGE_REQUEST_IID).toBe("function");
+    });
+
+    it("should handle mixed variable types", () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+
+      // Then
+      // Simple string variables
+      expect(typeof result.CI_PROJECT_ID).toBe("string");
+      expect(typeof result.CI_PIPELINE_IID).toBe("string");
+      // Variables with local field
+      expect(typeof result.CI_COMMIT_REF_NAME).toBe("function");
+      expect(typeof result.CI_MERGE_REQUEST_APPROVED).toBe("function");
+      expect(typeof result.CI_MERGE_REQUEST_IID).toBe("function");
+    });
+  });
+
+  describe("Getter functions execution", () => {
+    it("should return promises when calling getter functions", async () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+
+      // Then
+      const commitRefNamePromise = result.CI_COMMIT_REF_NAME();
+      const mergeRequestApprovedPromise = result.CI_MERGE_REQUEST_APPROVED();
+      const mergeRequestIidPromise = result.CI_MERGE_REQUEST_IID();
+
+      expect(commitRefNamePromise instanceof Promise).toBe(true);
+      expect(mergeRequestApprovedPromise instanceof Promise).toBe(true);
+      expect(mergeRequestIidPromise instanceof Promise).toBe(true);
+
+      // Verify they resolve to the expected local values
+      await expect(mergeRequestApprovedPromise).resolves.toBe(false);
+      await expect(mergeRequestIidPromise).resolves.toBe(1);
+    });
+  });
+
+  describe("Type safety", () => {
+    it("should correctly type simple string variables", () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+
+      // Then
+      const _: string = result.CI_PROJECT_ID;
+      expect(typeof result.CI_PROJECT_ID).toBe("string");
+    });
+
+    it("should correctly type getter functions", () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+
+      // Then
+      const _commitRef: () => Promise<string> = result.CI_COMMIT_REF_NAME;
+      const _approved: () => Promise<boolean> = result.CI_MERGE_REQUEST_APPROVED;
+      const _iid: () => Promise<number> = result.CI_MERGE_REQUEST_IID;
+
+      expect(typeof result.CI_COMMIT_REF_NAME).toBe("function");
+      expect(typeof result.CI_MERGE_REQUEST_APPROVED).toBe("function");
+      expect(typeof result.CI_MERGE_REQUEST_IID).toBe("function");
     });
   });
 });
