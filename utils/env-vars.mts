@@ -1,6 +1,10 @@
 import { $ } from "zx";
 import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type VariableConfig } from "./env-utils.mts";
 
+/**
+ * The declarations for all environment variables used in the pipeline.
+ * Each declaration can be a simple string (the variable name) or a {@link VariableConfig}.
+ */
 const ENV_VAR_DECLARATIONS = [
   "CI_PIPELINE_IID",
   {
