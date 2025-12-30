@@ -5,7 +5,8 @@
     "typecheck": "tsc --noEmit",
     "typecheck:watch": "tsc --noEmit --watch",
     "format": "prettier --write .",
-    "test": "vitest"
+    "test": "vitest",
+    "test:agent": "vitest --run"
   },
   "repository": {
     "type": "git",
