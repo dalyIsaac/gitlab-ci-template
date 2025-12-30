@@ -6,6 +6,7 @@ import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type 
  * Each declaration can be a simple string (the variable name) or a {@link VariableConfig}.
  */
 const ENV_VAR_DECLARATIONS = [
+  "CI_PROJECT_ID",
   "CI_PIPELINE_IID",
   {
     name: "CI_COMMIT_REF_NAME",
