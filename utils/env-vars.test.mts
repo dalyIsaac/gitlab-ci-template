@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { ENV_VARS_MAP } from "./env-vars.mts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ENV_VARS_MAP, getPipelineEnvVars } from "./env-vars.mts";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.resetModules();
+});
 
 describe("EnvVarsMap type safety", () => {
   it("should not map any field to 'any' type", () => {
@@ -78,4 +83,114 @@ describe("EnvVarsMap type safety", () => {
    * making this validation resolve to false and causing a compile error.
    */
   type EnvVarsMapValidation = typeof ENV_VARS_MAP extends ValidateEnvVarsMap ? true : false;
+});
+
+describe("getPipelineEnvVars", () => {
+  describe("Environment variable retrieval", () => {
+    it("should return an object with the requested variables", () => {
+      // Given
+      vi.stubEnv("CI_PIPELINE_IID", "123");
+      vi.stubEnv("CI_MERGE_REQUEST_IID", "456");
+      const varNames = ["CI_PIPELINE_IID", "CI_MERGE_REQUEST_IID"] as const;
+
+      // When
+      const result = getPipelineEnvVars(...varNames);
+
+      // Then
+      expect(result).toHaveProperty("CI_PIPELINE_IID");
+      expect(result).toHaveProperty("CI_MERGE_REQUEST_IID");
+      expect(Object.keys(result)).toHaveLength(2);
+    });
+
+    it("should return string values for simple string variables", () => {
+      // Given
+      vi.stubEnv("CI_PIPELINE_IID", "123");
+      const varNames = ["CI_PIPELINE_IID"] as const;
+
+      // When
+      const result = getPipelineEnvVars(...varNames);
+
+      // Then
+      expect(result.CI_PIPELINE_IID).toBe("123");
+    });
+
+    it("should return getter functions for config-based variables", () => {
+      // Given
+      vi.stubEnv("CI_MERGE_REQUEST_APPROVED", "true");
+      const varNames = ["CI_MERGE_REQUEST_APPROVED"] as const;
+
+      // When
+      const result = getPipelineEnvVars(...varNames);
+
+      // Then
+      expect(typeof result.CI_MERGE_REQUEST_APPROVED).toBe("function");
+    });
+
+    it("should handle empty variable list", () => {
+      // When
+      const result = getPipelineEnvVars();
+
+      // Then
+      expect(result).toEqual({});
+    });
+
+    it("should handle multiple variables of different types", () => {
+      // Given
+      vi.stubEnv("CI_PIPELINE_IID", "456");
+      vi.stubEnv("CI_MERGE_REQUEST_IID", "789");
+      const varNames = ["CI_PIPELINE_IID", "CI_MERGE_REQUEST_IID"] as const;
+
+      // When
+      const result = getPipelineEnvVars(...varNames);
+
+      // Then
+      expect(result.CI_PIPELINE_IID).toBe("456");
+      expect(result.CI_MERGE_REQUEST_IID).toBe("789");
+    });
+  });
+
+  describe("Type safety", () => {
+    it("should type string variables as strings", () => {
+      // Given
+      vi.stubEnv("CI_PIPELINE_IID", "123");
+
+      // When
+      const result = getPipelineEnvVars("CI_PIPELINE_IID");
+
+      // Then
+      const _: string = result.CI_PIPELINE_IID;
+      expect(typeof result.CI_PIPELINE_IID).toBe("string");
+    });
+
+    it("should type config-based variables as functions returning promises", async () => {
+      // Given
+      vi.stubEnv("CI_MERGE_REQUEST_APPROVED", "true");
+
+      // When
+      const result = getPipelineEnvVars("CI_MERGE_REQUEST_APPROVED");
+
+      // Then
+      const getter = result.CI_MERGE_REQUEST_APPROVED;
+      expect(typeof getter).toBe("function");
+      const returnValue = getter();
+      expect(returnValue instanceof Promise).toBe(true);
+      // When not in CI, it uses the local variant which returns false
+      await expect(returnValue).resolves.toBe(false);
+    });
+
+    it("should correctly type multiple variables with mixed types", () => {
+      // Given
+      vi.stubEnv("CI_PIPELINE_IID", "123");
+      vi.stubEnv("CI_MERGE_REQUEST_APPROVED", "false");
+
+      // When
+      const result = getPipelineEnvVars("CI_PIPELINE_IID", "CI_MERGE_REQUEST_APPROVED");
+
+      // Then
+      const _stringType: string = result.CI_PIPELINE_IID;
+      const _functionType: () => Promise<boolean> = result.CI_MERGE_REQUEST_APPROVED;
+      expect(typeof result.CI_PIPELINE_IID).toBe("string");
+      expect(typeof result.CI_MERGE_REQUEST_APPROVED).toBe("function");
+    });
+  });
 });
