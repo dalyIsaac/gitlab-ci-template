@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { SquawkConfig } from "./squawk-config.mts";
 import type { SquawkCheckResult, UserInputResult } from "./squawk-utils.mts";
 import { getExistingResultsTable, runAllChecks, summarizeCheckResults } from "./squawk-utils.mts";
 
@@ -133,6 +134,29 @@ describe("runAllChecks", () => {
 
   it("should run pre-approval checks when CI_MERGE_REQUEST_APPROVED is not in env", async () => {
     // Given
+    const testConfig: SquawkConfig = {
+      preApproval: [
+        {
+          name: "All commits are GPG signed",
+          script: "echo hello",
+        },
+        {
+          name: "Developer has reviewed their changes",
+          userInputType: "boolean",
+        },
+        {
+          name: "Developer has updated merge request description",
+          script: "echo hello",
+        },
+      ],
+      postApproval: [
+        {
+          name: "Has run System Tests on the branch HEAD",
+          script: "echo hello",
+        },
+      ],
+    };
+
     const mockPipeline = {
       env: {
         // No CI_MERGE_REQUEST_APPROVED property.
@@ -142,7 +166,7 @@ describe("runAllChecks", () => {
     const existingResults: UserInputResult[] = [];
 
     // When
-    const result = await runAllChecks(mockPipeline, existingResults);
+    const result = await runAllChecks(mockPipeline, existingResults, testConfig);
 
     // Then - verify it returns an array (checks were run)
     expect(Array.isArray(result)).toBe(true);
@@ -150,6 +174,29 @@ describe("runAllChecks", () => {
 
   it("should run post-approval checks when merge request is approved", async () => {
     // Given
+    const testConfig: SquawkConfig = {
+      preApproval: [
+        {
+          name: "All commits are GPG signed",
+          script: "echo hello",
+        },
+        {
+          name: "Developer has reviewed their changes",
+          userInputType: "boolean",
+        },
+        {
+          name: "Developer has updated merge request description",
+          script: "echo hello",
+        },
+      ],
+      postApproval: [
+        {
+          name: "Has run System Tests on the branch HEAD",
+          script: "echo hello",
+        },
+      ],
+    };
+
     const mockPipeline = {
       env: {
         CI_MERGE_REQUEST_APPROVED: vi.fn().mockResolvedValue(true),
@@ -159,7 +206,7 @@ describe("runAllChecks", () => {
     const existingResults: UserInputResult[] = [];
 
     // When
-    const result = await runAllChecks(mockPipeline, existingResults);
+    const result = await runAllChecks(mockPipeline, existingResults, testConfig);
 
     // Then
     expect(Array.isArray(result)).toBe(true);
@@ -168,6 +215,29 @@ describe("runAllChecks", () => {
 
   it("should skip post-approval checks when merge request is not approved", async () => {
     // Given
+    const testConfig: SquawkConfig = {
+      preApproval: [
+        {
+          name: "All commits are GPG signed",
+          script: "echo hello",
+        },
+        {
+          name: "Developer has reviewed their changes",
+          userInputType: "boolean",
+        },
+        {
+          name: "Developer has updated merge request description",
+          script: "echo hello",
+        },
+      ],
+      postApproval: [
+        {
+          name: "Has run System Tests on the branch HEAD",
+          script: "echo hello",
+        },
+      ],
+    };
+
     const mockPipeline = {
       env: {
         CI_MERGE_REQUEST_APPROVED: vi.fn().mockResolvedValue(false),
@@ -177,7 +247,7 @@ describe("runAllChecks", () => {
     const existingResults: UserInputResult[] = [];
 
     // When
-    const result = await runAllChecks(mockPipeline, existingResults);
+    const result = await runAllChecks(mockPipeline, existingResults, testConfig);
 
     // Then
     expect(Array.isArray(result)).toBe(true);

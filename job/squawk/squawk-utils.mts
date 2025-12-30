@@ -2,7 +2,8 @@ import { $ } from "zx";
 import { createMergeRequestDescriptionSectionRegex } from "../../utils/gitlab.mts";
 import { jobLog } from "../../utils/job.mts";
 import { createMarkdownTable } from "../../utils/markdown.mts";
-import { SQUAWK_CONFIG, type SquawkCheck } from "./squawk-config.mts";
+import type { PipelineConfig } from "../../utils/pipeline.mts";
+import { SQUAWK_CONFIG, type SquawkCheck, type SquawkConfig } from "./squawk-config.mts";
 
 const SECTION_TITLE = "squawk-check-results";
 
@@ -72,16 +73,21 @@ export interface UserInputResult {
  * Runs all squawk checks based on the provided pipeline and user input results.
  * @param pipeline The pipeline configuration.
  * @param userInputResults The user input results from the merge request description.
+ * @param config The squawk configuration. Defaults to the global SQUAWK_CONFIG.
  * @returns A promise that resolves to an array of squawk check results.
  */
-export async function runAllChecks(pipeline: any, userInputResults: UserInputResult[]): Promise<SquawkCheckResult[]> {
-  const preApprovalResults = await runMultipleChecks(SQUAWK_CONFIG.preApproval, userInputResults);
+export async function runAllChecks(
+  pipeline: PipelineConfig,
+  userInputResults: UserInputResult[],
+  config: SquawkConfig = SQUAWK_CONFIG,
+): Promise<SquawkCheckResult[]> {
+  const preApprovalResults = await runMultipleChecks(config.preApproval, userInputResults);
 
   let postApprovalResults: SquawkCheckResult[] = [];
   if ("CI_MERGE_REQUEST_APPROVED" in pipeline.env) {
     const isApproved = await pipeline.env.CI_MERGE_REQUEST_APPROVED();
     if (isApproved) {
-      postApprovalResults = await runMultipleChecks(SQUAWK_CONFIG.postApproval, userInputResults);
+      postApprovalResults = await runMultipleChecks(config.postApproval, userInputResults);
     } else {
       jobLog("Merge request not approved; skipping post-approval checks.");
     }

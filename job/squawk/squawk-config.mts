@@ -21,7 +21,7 @@ export const SQUAWK_CONFIG: SquawkConfig = {
   ],
 };
 
-interface SquawkConfig {
+export interface SquawkConfig {
   preApproval: SquawkCheck[];
   postApproval: SquawkCheck[];
 }

@@ -30,11 +30,6 @@ interface JobMainArg<TSource extends keyof typeof PIPELINE_CONFIGS> {
 }
 
 /**
- * The argument type for the `jobMain` function, based on the pipeline source.
- */
-export type GetJobMainArg<TSource extends keyof typeof PIPELINE_CONFIGS> = JobMainArg<TSource>;
-
-/**
  * Used to track the stack depth for nested job sections.
  */
 let nesting = 0;
