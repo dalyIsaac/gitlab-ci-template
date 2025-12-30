@@ -23,7 +23,11 @@ const ENV_VAR_DECLARATIONS = [
     local: async () => false,
     pipeline: createGetTypedEnvVarFromEnv("boolean"),
   },
-  "CI_MERGE_REQUEST_IID",
+  {
+    name: "CI_MERGE_REQUEST_IID",
+    local: async () => 1,
+    pipeline: createGetTypedEnvVarFromEnv("number"),
+  },
 ] as const satisfies Variable<string>[];
 
 type Variable<TName extends string> = TName | VariableConfig<TName, any>;

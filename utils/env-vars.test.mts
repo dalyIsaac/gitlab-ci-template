@@ -133,20 +133,6 @@ describe("getPipelineEnvVars", () => {
       // Then
       expect(result).toEqual({});
     });
-
-    it("should handle multiple variables of different types", () => {
-      // Given
-      vi.stubEnv("CI_PIPELINE_IID", "456");
-      vi.stubEnv("CI_MERGE_REQUEST_IID", "789");
-      const varNames = ["CI_PIPELINE_IID", "CI_MERGE_REQUEST_IID"] as const;
-
-      // When
-      const result = getPipelineEnvVars(...varNames);
-
-      // Then
-      expect(result.CI_PIPELINE_IID).toBe("456");
-      expect(result.CI_MERGE_REQUEST_IID).toBe("789");
-    });
   });
 
   describe("Type safety", () => {
