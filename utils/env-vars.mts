@@ -25,13 +25,13 @@ const ENV_VAR_DECLARATIONS = [
     name: "UTILS_DIR",
     deps: ["CI_PROJECT_DIR"] as const,
     local: async (config, env) => {
-      // Type assertion: env.CI_PROJECT_DIR will be typed as EnvVarsMap["CI_PROJECT_DIR"]
-      const ciProjectDir = env.CI_PROJECT_DIR as  () => Promise<string>;
+      // env.CI_PROJECT_DIR is properly typed via structural typing
+      const ciProjectDir = env.CI_PROJECT_DIR as () => Promise<string>;
       const projectDir = typeof ciProjectDir === "function" ? await ciProjectDir() : ciProjectDir;
       return `${projectDir}/utils`;
     },
     pipeline: async (config, env) => {
-      // Type assertion: env.CI_PROJECT_DIR will be typed as EnvVarsMap["CI_PROJECT_DIR"]
+      // env.CI_PROJECT_DIR is properly typed via structural typing
       const ciProjectDir = env.CI_PROJECT_DIR as () => Promise<string>;
       const projectDir = typeof ciProjectDir === "function" ? await ciProjectDir() : ciProjectDir;
       return `${projectDir}/utils`;
@@ -51,6 +51,9 @@ const ENV_VAR_DECLARATIONS = [
   },
 ] as const satisfies Variable<string>[];
 
+/**
+ * Type for variable declarations - either a simple string or a VariableConfig.
+ */
 type Variable<TName extends string> = TName | VariableConfig<TName, any, any>;
 
 /**
@@ -174,6 +177,19 @@ type ArrayToObject<T extends readonly any[]> = {
  * Properly typed environment object for custom variable functions.
  * Maps each dependency name to its actual type from EnvVarsMap.
  * This is similar to how PipelineEnvVarsRecord works.
+ * 
+ * Usage example:
+ * ```ts
+ * {
+ *   name: "UTILS_DIR",
+ *   deps: ["CI_PROJECT_DIR"] as const,
+ *   local: async (config, env: TypedCustomVariableEnv<["CI_PROJECT_DIR"]>) => {
+ *     const dir = env.CI_PROJECT_DIR; // Properly typed as () => Promise<string>
+ *     return `${await dir()}/utils`;
+ *   },
+ *   ...
+ * }
+ * ```
  */
 export type TypedCustomVariableEnv<TDeps extends readonly (keyof EnvVarsDeclarationsMap)[]> = {
   [K in TDeps[number]]: EnvVarsMap[K];
