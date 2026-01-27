@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ENV_VARS_MAP, getLocalEnvVars, getPipelineEnvVars } from "./env-vars.mts";
+import { DEFAULT_CI_PROJECT_DIR, ENV_VARS_MAP, getLocalEnvVars, getPipelineEnvVars } from "./env-vars.mts";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -364,7 +364,7 @@ describe("Variable references", () => {
       const value = await result.CI_PROJECT_DIR();
 
       // Then
-      expect(value).toBe("/home/username/repos/gitlab-ci-template");
+      expect(value).toBe(DEFAULT_CI_PROJECT_DIR);
     });
 
     it("should have correct type signature", () => {
@@ -405,7 +405,7 @@ describe("Variable references", () => {
       const utilsDir = await result.UTILS_DIR();
 
       // Then
-      expect(utilsDir).toBe("/home/username/repos/gitlab-ci-template/utils");
+      expect(utilsDir).toBe(`${DEFAULT_CI_PROJECT_DIR}/utils`);
     });
 
     it("should have correct type signature", () => {
@@ -448,7 +448,7 @@ describe("Variable references", () => {
       const utilsDir = await result.UTILS_DIR();
 
       // Then
-      expect(utilsDir).toBe("/home/username/repos/gitlab-ci-template/utils");
+      expect(utilsDir).toBe(`${DEFAULT_CI_PROJECT_DIR}/utils`);
     });
   });
 });

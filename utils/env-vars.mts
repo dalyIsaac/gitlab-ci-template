@@ -2,14 +2,29 @@ import { $ } from "zx";
 import { createGetTypedEnvVarFromEnv, env, type EnvVarsGetter, getEnvVarFromConfigName, IS_CI, type VariableConfig } from "./env-utils.mts";
 
 /**
+ * The default local directory for CI_PROJECT_DIR
+ */
+export const DEFAULT_CI_PROJECT_DIR = "/home/username/repos/gitlab-ci-template";
+
+/**
+ * Helper function to resolve a variable value, handling both direct values and async getters.
+ *
+ * @param value The value from getVar, which can be either a direct value or a function returning a promise
+ * @returns The resolved value
+ */
+const resolveVarValue = async <T,>(value: T | (() => Promise<T>)): Promise<T> => {
+  return typeof value === "function" ? await (value as () => Promise<T>)() : value;
+};
+
+/**
  * Helper function to get UTILS_DIR by resolving CI_PROJECT_DIR
  */
 const getUtilsDir = async (config: VariableConfig<string, string>, getVar?: EnvVarsGetter): Promise<string> => {
   if (!getVar) {
-    throw new Error("getVar is required for UTILS_DIR");
+    throw new Error("getVar function is required for UTILS_DIR to reference CI_PROJECT_DIR");
   }
   const ciProjectDir = getVar<string>("CI_PROJECT_DIR");
-  const projectDir = typeof ciProjectDir === "function" ? await ciProjectDir() : ciProjectDir;
+  const projectDir = await resolveVarValue(ciProjectDir);
   return `${projectDir}/utils`;
 };
 
@@ -30,7 +45,7 @@ const ENV_VAR_DECLARATIONS = [
   },
   {
     name: "CI_PROJECT_DIR",
-    local: async () => "/home/username/repos/gitlab-ci-template",
+    local: async () => DEFAULT_CI_PROJECT_DIR,
     pipeline: getEnvVarFromConfigName,
   },
   {
@@ -60,7 +75,10 @@ type Variable<TName extends string> = TName | VariableConfig<TName, any>;
 export const ENV_VARS_MAP = (() => {
   const obj: Partial<EnvVarsMap> = {};
 
-  // Create a getter function that can access other variables
+  // Create a getter function that can access other variables.
+  // Note: This is safe because simple string variables are initialized synchronously first,
+  // and custom variable functions are added next. The getVar function is only called when
+  // a custom variable function is invoked, which happens after all variables are initialized.
   const createGetVar = (): EnvVarsGetter => {
     return <T,>(name: string): T | (() => Promise<T>) => {
       const value = obj[name as keyof typeof obj];
