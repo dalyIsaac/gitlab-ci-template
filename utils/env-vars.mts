@@ -24,12 +24,12 @@ const ENV_VAR_DECLARATIONS = [
   {
     name: "UTILS_DIR",
     local: async (config, getVar) => {
-      const ciProjectDir = getVar<string>("CI_PROJECT_DIR");
+      const ciProjectDir = getVar("CI_PROJECT_DIR");
       const projectDir = typeof ciProjectDir === "function" ? await ciProjectDir() : ciProjectDir;
       return `${projectDir}/utils`;
     },
     pipeline: async (config, getVar) => {
-      const ciProjectDir = getVar<string>("CI_PROJECT_DIR");
+      const ciProjectDir = getVar("CI_PROJECT_DIR");
       const projectDir = typeof ciProjectDir === "function" ? await ciProjectDir() : ciProjectDir;
       return `${projectDir}/utils`;
     },
