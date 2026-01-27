@@ -33,9 +33,10 @@ describe("getEnvVarFromConfigName", () => {
       local: async () => "local",
       pipeline: async () => "pipeline",
     };
+    const mockGetVar = vi.fn();
 
     // When
-    const result = getEnvVarFromConfigName(cfg);
+    const result = getEnvVarFromConfigName(cfg, mockGetVar);
 
     // Then
     await expect(result).resolves.toBe("cfg_value");
@@ -48,9 +49,10 @@ describe("getEnvVarFromConfigName", () => {
       local: async () => "local",
       pipeline: async () => "pipeline",
     };
+    const mockGetVar = vi.fn();
 
     // When
-    const result = getEnvVarFromConfigName(cfg);
+    const result = getEnvVarFromConfigName(cfg, mockGetVar);
 
     // Then
     await expect(result).rejects.toThrow(/Environment variable "MISSING" is not defined./);
@@ -67,9 +69,10 @@ describe("createGetTypedEnvVarFromEnv", () => {
       local: async () => "local",
       pipeline: async () => "pipeline",
     };
+    const mockGetVar = vi.fn();
 
     // When
-    const result = getTyped(cfg);
+    const result = getTyped(cfg, mockGetVar);
 
     // Then
     await expect(result).resolves.toBe("hello");
@@ -84,9 +87,10 @@ describe("createGetTypedEnvVarFromEnv", () => {
       local: async () => 0,
       pipeline: async () => 0,
     };
+    const mockGetVar = vi.fn();
 
     // When
-    const result = getTyped(cfg);
+    const result = getTyped(cfg, mockGetVar);
 
     // Then
     await expect(result).resolves.toBe(42);
@@ -101,9 +105,10 @@ describe("createGetTypedEnvVarFromEnv", () => {
       local: async () => false,
       pipeline: async () => false,
     };
+    const mockGetVar = vi.fn();
 
     // When
-    const result = getTyped(cfg);
+    const result = getTyped(cfg, mockGetVar);
 
     // Then
     await expect(result).resolves.toBe(true);
@@ -117,9 +122,10 @@ describe("createGetTypedEnvVarFromEnv", () => {
       local: async () => "local",
       pipeline: async () => "pipeline",
     };
+    const mockGetVar = vi.fn();
 
     // When
-    const result = getTyped(cfg);
+    const result = getTyped(cfg, mockGetVar);
 
     // Then
     await expect(result).rejects.toThrow(/Environment variable "MISSING_TYPED" is not defined./);
