@@ -223,6 +223,8 @@ describe("getLocalEnvVars", () => {
         "CI_PROJECT_ID",
         "CI_PIPELINE_IID",
         "CI_COMMIT_REF_NAME",
+        "CI_PROJECT_DIR",
+        "UTILS_DIR",
         "CI_MERGE_REQUEST_APPROVED",
         "CI_MERGE_REQUEST_IID",
       ];
@@ -333,6 +335,120 @@ describe("getLocalEnvVars", () => {
       expect(typeof result.CI_COMMIT_REF_NAME).toBe("function");
       expect(typeof result.CI_MERGE_REQUEST_APPROVED).toBe("function");
       expect(typeof result.CI_MERGE_REQUEST_IID).toBe("function");
+    });
+  });
+});
+
+describe("Variable references", () => {
+  describe("CI_PROJECT_DIR", () => {
+    it("should be available as a local variable", () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+
+      // Then
+      expect(result).toHaveProperty("CI_PROJECT_DIR");
+      expect(typeof result.CI_PROJECT_DIR).toBe("function");
+    });
+
+    it("should return the local default value", async () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+      const value = await result.CI_PROJECT_DIR();
+
+      // Then
+      expect(value).toBe("/home/username/repos/gitlab-ci-template");
+    });
+
+    it("should have correct type signature", () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+
+      // Then
+      const _: () => Promise<string> = result.CI_PROJECT_DIR;
+      expect(typeof result.CI_PROJECT_DIR).toBe("function");
+    });
+  });
+
+  describe("UTILS_DIR", () => {
+    it("should be available as a local variable", () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+
+      // Then
+      expect(result).toHaveProperty("UTILS_DIR");
+      expect(typeof result.UTILS_DIR).toBe("function");
+    });
+
+    it("should reference CI_PROJECT_DIR correctly", async () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+      const utilsDir = await result.UTILS_DIR();
+
+      // Then
+      expect(utilsDir).toBe("/home/username/repos/gitlab-ci-template/utils");
+    });
+
+    it("should have correct type signature", () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+
+      // Then
+      const _: () => Promise<string> = result.UTILS_DIR;
+      expect(typeof result.UTILS_DIR).toBe("function");
+    });
+  });
+
+  describe("Pipeline usage", () => {
+    it("should work with getPipelineEnvVars", () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getPipelineEnvVars("CI_PROJECT_DIR", "UTILS_DIR");
+
+      // Then
+      expect(result).toHaveProperty("CI_PROJECT_DIR");
+      expect(result).toHaveProperty("UTILS_DIR");
+      expect(typeof result.CI_PROJECT_DIR).toBe("function");
+      expect(typeof result.UTILS_DIR).toBe("function");
+    });
+
+    it("should allow UTILS_DIR to reference CI_PROJECT_DIR in pipeline context", async () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getPipelineEnvVars("CI_PROJECT_DIR", "UTILS_DIR");
+      const utilsDir = await result.UTILS_DIR();
+
+      // Then
+      expect(utilsDir).toBe("/home/username/repos/gitlab-ci-template/utils");
     });
   });
 });

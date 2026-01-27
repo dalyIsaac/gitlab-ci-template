@@ -33,12 +33,22 @@ export interface VariableConfig<TName extends string, TResult> {
   pipeline: CustomVariableFn<TName, TResult>;
 }
 
-export type CustomVariableFn<TName extends string, TResult = string> = (config: VariableConfig<TName, TResult>) => Promise<TResult>;
+/**
+ * A getter function that can access other environment variables.
+ * This is passed as the second parameter to custom variable functions.
+ */
+export type EnvVarsGetter = <T>(name: string) => T | (() => Promise<T>);
+
+export type CustomVariableFn<TName extends string, TResult = string> = (
+  config: VariableConfig<TName, TResult>,
+  getVar?: EnvVarsGetter,
+) => Promise<TResult>;
 
 export const createGetTypedEnvVarFromEnv =
   <TCustomVariableType extends CustomVariableType>(type: TCustomVariableType) =>
   async <TName extends string>(
     config: VariableConfig<TName, StringTypeToType<TCustomVariableType>>,
+    getVar?: EnvVarsGetter,
   ): Promise<StringTypeToType<TCustomVariableType>> => {
     const value = env(config.name);
     return tryCastValue(value, type);
@@ -58,10 +68,13 @@ type StringTypeToType<TCustomVariableType> = TCustomVariableType extends "number
  * Gets the value of an environment variable from the environment.
  *
  * @param config The custom variable configuration.
+ * @param getVar Optional getter for accessing other environment variables.
  * @returns The value of the environment variable.
  */
-export const getEnvVarFromConfigName = async <TName extends string>(config: VariableConfig<TName, string>): Promise<string> =>
-  env(config.name);
+export const getEnvVarFromConfigName = async <TName extends string>(
+  config: VariableConfig<TName, string>,
+  getVar?: EnvVarsGetter,
+): Promise<string> => env(config.name);
 
 export type CustomVariableType = "string" | "number" | "boolean";
 

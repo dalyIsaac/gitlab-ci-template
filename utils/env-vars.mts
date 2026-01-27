@@ -1,5 +1,5 @@
 import { $ } from "zx";
-import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type VariableConfig } from "./env-utils.mts";
+import { createGetTypedEnvVarFromEnv, env, type EnvVarsGetter, getEnvVarFromConfigName, IS_CI, type VariableConfig } from "./env-utils.mts";
 
 /**
  * The declarations for all environment variables used in the pipeline.
@@ -15,6 +15,30 @@ const ENV_VAR_DECLARATIONS = [
       return output.valueOf();
     },
     pipeline: getEnvVarFromConfigName,
+  },
+  {
+    name: "CI_PROJECT_DIR",
+    local: async () => "/home/username/repos/gitlab-ci-template",
+    pipeline: getEnvVarFromConfigName,
+  },
+  {
+    name: "UTILS_DIR",
+    local: async (config, getVar) => {
+      if (!getVar) {
+        throw new Error("getVar is required for UTILS_DIR");
+      }
+      const ciProjectDir = getVar<string>("CI_PROJECT_DIR");
+      const projectDir = typeof ciProjectDir === "function" ? await ciProjectDir() : ciProjectDir;
+      return `${projectDir}/utils`;
+    },
+    pipeline: async (config, getVar) => {
+      if (!getVar) {
+        throw new Error("getVar is required for UTILS_DIR");
+      }
+      const ciProjectDir = getVar<string>("CI_PROJECT_DIR");
+      const projectDir = typeof ciProjectDir === "function" ? await ciProjectDir() : ciProjectDir;
+      return `${projectDir}/utils`;
+    },
   },
 
   // Merge request specific variables.
@@ -38,6 +62,19 @@ type Variable<TName extends string> = TName | VariableConfig<TName, any>;
 export const ENV_VARS_MAP = (() => {
   const obj: Partial<EnvVarsMap> = {};
 
+  // Create a getter function that can access other variables
+  const createGetVar = (): EnvVarsGetter => {
+    return <T = any,>(name: string): T | (() => Promise<T>) => {
+      const value = (obj as any)[name];
+      if (value === undefined) {
+        throw new Error(`Environment variable "${name}" is not defined or has not been initialized yet.`);
+      }
+      return value as T | (() => Promise<T>);
+    };
+  };
+
+  const getVar = createGetVar();
+
   for (const config of ENV_VAR_DECLARATIONS) {
     // Simple string variable.
     if (typeof config === "string") {
@@ -53,7 +90,7 @@ export const ENV_VARS_MAP = (() => {
     // Cast to ignore ENV_VAR_DECLARATIONS being a readonly tuple.
     const typedConfig = config as VariableConfig<string, any>;
 
-    obj[config.name] = () => typedConfig[variant](config);
+    obj[config.name] = () => typedConfig[variant](config, getVar);
   }
 
   return obj as EnvVarsMap;
