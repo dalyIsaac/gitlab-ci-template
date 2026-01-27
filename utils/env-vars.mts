@@ -1,5 +1,5 @@
 import { $ } from "zx";
-import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type VariableConfig, type CustomVariableEnv } from "./env-utils.mts";
+import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type VariableConfig } from "./env-utils.mts";
 
 /**
  * The declarations for all environment variables used in the pipeline.
@@ -25,18 +25,16 @@ const ENV_VAR_DECLARATIONS = [
     name: "UTILS_DIR",
     deps: ["CI_PROJECT_DIR"] as const,
     local: async (config, env) => {
-      // env.CI_PROJECT_DIR is properly typed via structural typing
-      const ciProjectDir = env.CI_PROJECT_DIR as () => Promise<string>;
+      const ciProjectDir = env.CI_PROJECT_DIR;
       const projectDir = typeof ciProjectDir === "function" ? await ciProjectDir() : ciProjectDir;
       return `${projectDir}/utils`;
     },
     pipeline: async (config, env) => {
-      // env.CI_PROJECT_DIR is properly typed via structural typing
-      const ciProjectDir = env.CI_PROJECT_DIR as () => Promise<string>;
+      const ciProjectDir = env.CI_PROJECT_DIR;
       const projectDir = typeof ciProjectDir === "function" ? await ciProjectDir() : ciProjectDir;
       return `${projectDir}/utils`;
     },
-  } as const,
+  } as const satisfies VariableConfig<"UTILS_DIR", string, readonly ["CI_PROJECT_DIR"], EnvVarsMap>,
 
   // Merge request specific variables.
   {
