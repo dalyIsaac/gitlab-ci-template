@@ -1,5 +1,5 @@
 import { $ } from "zx";
-import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type VariableConfig } from "./env-utils.mts";
+import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type VariableConfig, type CustomVariableEnv } from "./env-utils.mts";
 
 /**
  * The declarations for all environment variables used in the pipeline.
@@ -23,14 +23,16 @@ const ENV_VAR_DECLARATIONS = [
   },
   {
     name: "UTILS_DIR",
-    deps: ["CI_PROJECT_DIR"],
+    deps: ["CI_PROJECT_DIR"] as const,
     local: async (config, env) => {
-      const ciProjectDir = env.CI_PROJECT_DIR;
+      // Type assertion: env.CI_PROJECT_DIR will be typed as EnvVarsMap["CI_PROJECT_DIR"]
+      const ciProjectDir = env.CI_PROJECT_DIR as  () => Promise<string>;
       const projectDir = typeof ciProjectDir === "function" ? await ciProjectDir() : ciProjectDir;
       return `${projectDir}/utils`;
     },
     pipeline: async (config, env) => {
-      const ciProjectDir = env.CI_PROJECT_DIR;
+      // Type assertion: env.CI_PROJECT_DIR will be typed as EnvVarsMap["CI_PROJECT_DIR"]
+      const ciProjectDir = env.CI_PROJECT_DIR as () => Promise<string>;
       const projectDir = typeof ciProjectDir === "function" ? await ciProjectDir() : ciProjectDir;
       return `${projectDir}/utils`;
     },
@@ -74,7 +76,7 @@ export const ENV_VARS_MAP = (() => {
 
     obj[config.name] = () => {
       // Build the env object with only the declared dependencies
-      const envObj: Record<string, any> = {};
+      const envObj: any = {};
       if (typedConfig.deps) {
         for (const dep of typedConfig.deps) {
           envObj[dep] = obj[dep as keyof typeof obj];
@@ -141,7 +143,7 @@ type PipelineEnvVarsRecord<TVarNames extends keyof EnvVarsMap> = {
 /**
  * A map of the environment variable names to the type.
  */
-type EnvVarsMap = {
+export type EnvVarsMap = {
   [key in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[key] extends string
     ? string
     : EnvVarsDeclarationsMap[key] extends VariableConfig<string, infer R>
@@ -153,7 +155,7 @@ type EnvVarsMap = {
  * A map of the environment variable names to the metadata. This is a conversion of the {@link ENV_VAR_DECLARATIONS}
  * array to an object.
  */
-type EnvVarsDeclarationsMap = ArrayToObject<typeof ENV_VAR_DECLARATIONS>;
+export type EnvVarsDeclarationsMap = ArrayToObject<typeof ENV_VAR_DECLARATIONS>;
 
 /**
  * Converts an array to an object.
@@ -166,4 +168,13 @@ type ArrayToObject<T extends readonly any[]> = {
         ? N
         : never // If it has a "name", use the name as the key.
       : never]: P; // The value is the original type from the array.
+};
+
+/**
+ * Properly typed environment object for custom variable functions.
+ * Maps each dependency name to its actual type from EnvVarsMap.
+ * This is similar to how PipelineEnvVarsRecord works.
+ */
+export type TypedCustomVariableEnv<TDeps extends readonly (keyof EnvVarsDeclarationsMap)[]> = {
+  [K in TDeps[number]]: EnvVarsMap[K];
 };

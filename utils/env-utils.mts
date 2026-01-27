@@ -26,6 +26,10 @@ export const env = (varName: string, fallback?: string): string => {
 
 /**
  * The configuration for an environment variable.
+ * 
+ * @template TName - The name of the environment variable
+ * @template TResult - The return type of the variable's value
+ * @template TDeps - Array of dependency variable names
  */
 export interface VariableConfig<TName extends string, TResult, TDeps extends readonly string[] = readonly string[]> {
   name: TName;
@@ -41,12 +45,11 @@ export type CustomVariableFn<TName extends string, TResult = string, TDeps exten
 
 /**
  * Environment object containing only the declared dependencies for a custom variable function.
+ * This will be specialized per use-site to map dependency names to their actual types.
  */
-export type CustomVariableEnv<TDeps extends readonly string[]> = TDeps extends readonly []
-  ? Record<string, never>
-  : {
-      [K in TDeps[number]]: string | (() => Promise<any>);
-    };
+export type CustomVariableEnv<TDeps extends readonly string[]> = {
+  [K in TDeps[number]]: any;
+};
 
 export const createGetTypedEnvVarFromEnv =
   <TCustomVariableType extends CustomVariableType>(type: TCustomVariableType) =>
