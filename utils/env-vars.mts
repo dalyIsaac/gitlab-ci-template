@@ -25,13 +25,11 @@ const ENV_VAR_DECLARATIONS = [
     name: "UTILS_DIR",
     deps: ["CI_PROJECT_DIR"] as const,
     local: async (config, env) => {
-      const ciProjectDir = env.CI_PROJECT_DIR;
-      const projectDir = typeof ciProjectDir === "function" ? await ciProjectDir() : ciProjectDir;
+      const projectDir = await env.CI_PROJECT_DIR();
       return `${projectDir}/utils`;
     },
     pipeline: async (config, env) => {
-      const ciProjectDir = env.CI_PROJECT_DIR;
-      const projectDir = typeof ciProjectDir === "function" ? await ciProjectDir() : ciProjectDir;
+      const projectDir = await env.CI_PROJECT_DIR();
       return `${projectDir}/utils`;
     },
   } as const satisfies VariableConfig<"UTILS_DIR", string, readonly ["CI_PROJECT_DIR"], { CI_PROJECT_DIR: () => Promise<string> }>),
@@ -53,6 +51,66 @@ const ENV_VAR_DECLARATIONS = [
  * Type for variable declarations - either a simple string or a VariableConfig.
  */
 type Variable<TName extends string> = TName | VariableConfig<TName, any, any, any>;
+
+/**
+ * Detects circular dependencies in environment variable declarations.
+ * @param declarations The array of variable declarations to check
+ * @throws Error if a circular dependency is detected
+ */
+function detectCircularDependencies(declarations: readonly any[]): void {
+  const depGraph = new Map<string, Set<string>>();
+  
+  // Build dependency graph
+  for (const config of declarations) {
+    if (typeof config !== "string" && config.deps) {
+      if (!depGraph.has(config.name)) {
+        depGraph.set(config.name, new Set());
+      }
+      for (const dep of config.deps) {
+        depGraph.get(config.name)!.add(dep);
+      }
+    }
+  }
+  
+  // DFS to detect cycles
+  const visited = new Set<string>();
+  const recStack = new Set<string>();
+  const path: string[] = [];
+  
+  const hasCycle = (node: string): boolean => {
+    if (recStack.has(node)) {
+      // Found a cycle - build the cycle path for error message
+      const cycleStart = path.indexOf(node);
+      const cyclePath = [...path.slice(cycleStart), node].join(" -> ");
+      throw new Error(`Circular dependency detected: ${cyclePath}`);
+    }
+    if (visited.has(node)) return false;
+    
+    visited.add(node);
+    recStack.add(node);
+    path.push(node);
+    
+    const deps = depGraph.get(node);
+    if (deps) {
+      for (const dep of deps) {
+        if (hasCycle(dep)) return true;
+      }
+    }
+    
+    path.pop();
+    recStack.delete(node);
+    return false;
+  };
+  
+  for (const node of depGraph.keys()) {
+    if (hasCycle(node)) {
+      return; // Error already thrown
+    }
+  }
+}
+
+// Validate that there are no circular dependencies at module load time
+detectCircularDependencies(ENV_VAR_DECLARATIONS);
 
 /**
  * A map of {@link ENV_VAR_DECLARATIONS} names to the values or getter functions.
