@@ -21,7 +21,7 @@ const ENV_VAR_DECLARATIONS = [
     local: async () => "/home/username/repos/gitlab-ci-template",
     pipeline: getEnvVarFromConfigName,
   },
-  {
+  ({
     name: "UTILS_DIR",
     deps: ["CI_PROJECT_DIR"] as const,
     local: async (config, env) => {
@@ -34,7 +34,7 @@ const ENV_VAR_DECLARATIONS = [
       const projectDir = typeof ciProjectDir === "function" ? await ciProjectDir() : ciProjectDir;
       return `${projectDir}/utils`;
     },
-  } as const satisfies VariableConfig<"UTILS_DIR", string, readonly ["CI_PROJECT_DIR"], EnvVarsMap>,
+  } as const satisfies VariableConfig<"UTILS_DIR", string, readonly ["CI_PROJECT_DIR"], { CI_PROJECT_DIR: () => Promise<string> }>),
 
   // Merge request specific variables.
   {
@@ -52,7 +52,7 @@ const ENV_VAR_DECLARATIONS = [
 /**
  * Type for variable declarations - either a simple string or a VariableConfig.
  */
-type Variable<TName extends string> = TName | VariableConfig<TName, any, any>;
+type Variable<TName extends string> = TName | VariableConfig<TName, any, any, any>;
 
 /**
  * A map of {@link ENV_VAR_DECLARATIONS} names to the values or getter functions.

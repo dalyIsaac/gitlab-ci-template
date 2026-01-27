@@ -36,7 +36,7 @@ export interface VariableConfig<
   TName extends string,
   TResult,
   TDeps extends readonly string[] = readonly string[],
-  TEnvMap extends Record<string, any> = Record<string, any>
+  TEnvMap extends Record<string, any> = {}
 > {
   name: TName;
   deps?: TDeps;
@@ -48,7 +48,7 @@ export type CustomVariableFn<
   TName extends string,
   TResult = string,
   TDeps extends readonly string[] = readonly string[],
-  TEnvMap extends Record<string, any> = Record<string, any>
+  TEnvMap extends Record<string, any> = {}
 > = (
   config: VariableConfig<TName, TResult, TDeps, TEnvMap>,
   env: CustomVariableEnv<TDeps, TEnvMap>,
@@ -59,18 +59,18 @@ export type CustomVariableFn<
  * This will be specialized per use-site to map dependency names to their actual types.
  * 
  * @template TDeps - Array of dependency names
- * @template TEnvMap - Map of variable names to their types (defaults to any for each key)
+ * @template TEnvMap - Map of variable names to their types (defaults to empty object)
  */
 export type CustomVariableEnv<
   TDeps extends readonly string[],
-  TEnvMap extends Record<string, any> = Record<string, any>
+  TEnvMap extends Record<string, any> = {}
 > = {
   [K in TDeps[number]]: K extends keyof TEnvMap ? TEnvMap[K] : any;
 };
 
 export const createGetTypedEnvVarFromEnv =
   <TCustomVariableType extends CustomVariableType>(type: TCustomVariableType) =>
-  async <TName extends string, TDeps extends readonly string[] = readonly string[], TEnvMap extends Record<string, any> = Record<string, any>>(
+  async <TName extends string, TDeps extends readonly string[] = readonly string[], TEnvMap extends Record<string, any> = {}>(
     config: VariableConfig<TName, StringTypeToType<TCustomVariableType>, TDeps, TEnvMap>,
     envVars: CustomVariableEnv<TDeps, TEnvMap>,
   ): Promise<StringTypeToType<TCustomVariableType>> => {
@@ -95,7 +95,7 @@ type StringTypeToType<TCustomVariableType> = TCustomVariableType extends "number
  * @param envVars The environment object containing declared dependencies.
  * @returns The value of the environment variable.
  */
-export const getEnvVarFromConfigName = async <TName extends string, TDeps extends readonly string[] = readonly string[], TEnvMap extends Record<string, any> = Record<string, any>>(
+export const getEnvVarFromConfigName = async <TName extends string, TDeps extends readonly string[] = readonly string[], TEnvMap extends Record<string, any> = {}>(
   config: VariableConfig<TName, string, TDeps, TEnvMap>,
   envVars: CustomVariableEnv<TDeps, TEnvMap>,
 ): Promise<string> => env(config.name);
