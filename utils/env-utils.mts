@@ -37,7 +37,7 @@ export interface VariableConfig<TName extends string, TResult> {
  * A getter function that can access other environment variables.
  * This is passed as the second parameter to custom variable functions.
  */
-export type EnvVarsGetter = <T>(name: string) => T | (() => Promise<T>);
+export type EnvVarsGetter = <T,>(name: string) => T | (() => Promise<T>);
 
 export type CustomVariableFn<TName extends string, TResult = string> = (
   config: VariableConfig<TName, TResult>,

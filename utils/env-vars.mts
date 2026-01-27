@@ -2,6 +2,18 @@ import { $ } from "zx";
 import { createGetTypedEnvVarFromEnv, env, type EnvVarsGetter, getEnvVarFromConfigName, IS_CI, type VariableConfig } from "./env-utils.mts";
 
 /**
+ * Helper function to get UTILS_DIR by resolving CI_PROJECT_DIR
+ */
+const getUtilsDir = async (config: VariableConfig<string, string>, getVar?: EnvVarsGetter): Promise<string> => {
+  if (!getVar) {
+    throw new Error("getVar is required for UTILS_DIR");
+  }
+  const ciProjectDir = getVar<string>("CI_PROJECT_DIR");
+  const projectDir = typeof ciProjectDir === "function" ? await ciProjectDir() : ciProjectDir;
+  return `${projectDir}/utils`;
+};
+
+/**
  * The declarations for all environment variables used in the pipeline.
  * Each declaration can be a simple string (the variable name) or a {@link VariableConfig}.
  */
@@ -23,22 +35,8 @@ const ENV_VAR_DECLARATIONS = [
   },
   {
     name: "UTILS_DIR",
-    local: async (config, getVar) => {
-      if (!getVar) {
-        throw new Error("getVar is required for UTILS_DIR");
-      }
-      const ciProjectDir = getVar<string>("CI_PROJECT_DIR");
-      const projectDir = typeof ciProjectDir === "function" ? await ciProjectDir() : ciProjectDir;
-      return `${projectDir}/utils`;
-    },
-    pipeline: async (config, getVar) => {
-      if (!getVar) {
-        throw new Error("getVar is required for UTILS_DIR");
-      }
-      const ciProjectDir = getVar<string>("CI_PROJECT_DIR");
-      const projectDir = typeof ciProjectDir === "function" ? await ciProjectDir() : ciProjectDir;
-      return `${projectDir}/utils`;
-    },
+    local: getUtilsDir,
+    pipeline: getUtilsDir,
   },
 
   // Merge request specific variables.
@@ -64,8 +62,8 @@ export const ENV_VARS_MAP = (() => {
 
   // Create a getter function that can access other variables
   const createGetVar = (): EnvVarsGetter => {
-    return <T = any,>(name: string): T | (() => Promise<T>) => {
-      const value = (obj as any)[name];
+    return <T,>(name: string): T | (() => Promise<T>) => {
+      const value = obj[name as keyof typeof obj];
       if (value === undefined) {
         throw new Error(`Environment variable "${name}" is not defined or has not been initialized yet.`);
       }
