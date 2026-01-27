@@ -28,15 +28,14 @@ describe("getEnvVarFromConfigName", () => {
   it("should return the value from environment using config name", async () => {
     // Given
     vi.stubEnv("CFG_VAR", "cfg_value");
-    const cfg: VariableConfig<"CFG_VAR", string> = {
+    const cfg: VariableConfig<"CFG_VAR", string, []> = {
       name: "CFG_VAR",
       local: async () => "local",
       pipeline: async () => "pipeline",
     };
-    const mockGetVar = vi.fn();
 
     // When
-    const result = getEnvVarFromConfigName(cfg, mockGetVar);
+    const result = getEnvVarFromConfigName(cfg, {});
 
     // Then
     await expect(result).resolves.toBe("cfg_value");
@@ -44,15 +43,14 @@ describe("getEnvVarFromConfigName", () => {
 
   it("should throw when the env variable is undefined", async () => {
     // Given
-    const cfg: VariableConfig<"MISSING", string> = {
+    const cfg: VariableConfig<"MISSING", string, []> = {
       name: "MISSING",
       local: async () => "local",
       pipeline: async () => "pipeline",
     };
-    const mockGetVar = vi.fn();
 
     // When
-    const result = getEnvVarFromConfigName(cfg, mockGetVar);
+    const result = getEnvVarFromConfigName(cfg, {});
 
     // Then
     await expect(result).rejects.toThrow(/Environment variable "MISSING" is not defined./);
@@ -64,15 +62,14 @@ describe("createGetTypedEnvVarFromEnv", () => {
     // Given
     vi.stubEnv("STR_VAR", "hello");
     const getTyped = createGetTypedEnvVarFromEnv("string");
-    const cfg: VariableConfig<"STR_VAR", string> = {
+    const cfg: VariableConfig<"STR_VAR", string, []> = {
       name: "STR_VAR",
       local: async () => "local",
       pipeline: async () => "pipeline",
     };
-    const mockGetVar = vi.fn();
 
     // When
-    const result = getTyped(cfg, mockGetVar);
+    const result = getTyped(cfg, {});
 
     // Then
     await expect(result).resolves.toBe("hello");
@@ -82,15 +79,14 @@ describe("createGetTypedEnvVarFromEnv", () => {
     // Given
     vi.stubEnv("NUM_VAR", "42");
     const getTyped = createGetTypedEnvVarFromEnv("number");
-    const cfg: VariableConfig<"NUM_VAR", number> = {
+    const cfg: VariableConfig<"NUM_VAR", number, []> = {
       name: "NUM_VAR",
       local: async () => 0,
       pipeline: async () => 0,
     };
-    const mockGetVar = vi.fn();
 
     // When
-    const result = getTyped(cfg, mockGetVar);
+    const result = getTyped(cfg, {});
 
     // Then
     await expect(result).resolves.toBe(42);
@@ -100,15 +96,14 @@ describe("createGetTypedEnvVarFromEnv", () => {
     // Given
     vi.stubEnv("BOOL_VAR", "TRUE");
     const getTyped = createGetTypedEnvVarFromEnv("boolean");
-    const cfg: VariableConfig<"BOOL_VAR", boolean> = {
+    const cfg: VariableConfig<"BOOL_VAR", boolean, []> = {
       name: "BOOL_VAR",
       local: async () => false,
       pipeline: async () => false,
     };
-    const mockGetVar = vi.fn();
 
     // When
-    const result = getTyped(cfg, mockGetVar);
+    const result = getTyped(cfg, {});
 
     // Then
     await expect(result).resolves.toBe(true);
@@ -117,15 +112,14 @@ describe("createGetTypedEnvVarFromEnv", () => {
   it("should throw when env var is missing", async () => {
     // Given
     const getTyped = createGetTypedEnvVarFromEnv("string");
-    const cfg: VariableConfig<"MISSING_TYPED", string> = {
+    const cfg: VariableConfig<"MISSING_TYPED", string, []> = {
       name: "MISSING_TYPED",
       local: async () => "local",
       pipeline: async () => "pipeline",
     };
-    const mockGetVar = vi.fn();
 
     // When
-    const result = getTyped(cfg, mockGetVar);
+    const result = getTyped(cfg, {});
 
     // Then
     await expect(result).rejects.toThrow(/Environment variable "MISSING_TYPED" is not defined./);

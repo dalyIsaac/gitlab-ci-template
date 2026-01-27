@@ -27,28 +27,32 @@ export const env = (varName: string, fallback?: string): string => {
 /**
  * The configuration for an environment variable.
  */
-export interface VariableConfig<TName extends string, TResult> {
+export interface VariableConfig<TName extends string, TResult, TDeps extends readonly string[] = readonly string[]> {
   name: TName;
-  local: CustomVariableFn<TName, TResult>;
-  pipeline: CustomVariableFn<TName, TResult>;
+  deps?: TDeps;
+  local: CustomVariableFn<TName, TResult, TDeps>;
+  pipeline: CustomVariableFn<TName, TResult, TDeps>;
 }
 
-/**
- * A getter function that can access other environment variables.
- * This is passed as the second parameter to custom variable functions.
- */
-export type EnvVarsGetter = <T,>(name: string) => T | (() => Promise<T>);
-
-export type CustomVariableFn<TName extends string, TResult = string> = (
-  config: VariableConfig<TName, TResult>,
-  getVar: EnvVarsGetter,
+export type CustomVariableFn<TName extends string, TResult = string, TDeps extends readonly string[] = readonly string[]> = (
+  config: VariableConfig<TName, TResult, TDeps>,
+  env: CustomVariableEnv<TDeps>,
 ) => Promise<TResult>;
+
+/**
+ * Environment object containing only the declared dependencies for a custom variable function.
+ */
+export type CustomVariableEnv<TDeps extends readonly string[]> = TDeps extends readonly []
+  ? Record<string, never>
+  : {
+      [K in TDeps[number]]: string | (() => Promise<any>);
+    };
 
 export const createGetTypedEnvVarFromEnv =
   <TCustomVariableType extends CustomVariableType>(type: TCustomVariableType) =>
-  async <TName extends string>(
-    config: VariableConfig<TName, StringTypeToType<TCustomVariableType>>,
-    getVar: EnvVarsGetter,
+  async <TName extends string, TDeps extends readonly string[] = readonly string[]>(
+    config: VariableConfig<TName, StringTypeToType<TCustomVariableType>, TDeps>,
+    envVars: CustomVariableEnv<TDeps>,
   ): Promise<StringTypeToType<TCustomVariableType>> => {
     const value = env(config.name);
     return tryCastValue(value, type);
@@ -68,12 +72,12 @@ type StringTypeToType<TCustomVariableType> = TCustomVariableType extends "number
  * Gets the value of an environment variable from the environment.
  *
  * @param config The custom variable configuration.
- * @param getVar Getter for accessing other environment variables.
+ * @param envVars The environment object containing declared dependencies.
  * @returns The value of the environment variable.
  */
-export const getEnvVarFromConfigName = async <TName extends string>(
-  config: VariableConfig<TName, string>,
-  getVar: EnvVarsGetter,
+export const getEnvVarFromConfigName = async <TName extends string, TDeps extends readonly string[] = readonly string[]>(
+  config: VariableConfig<TName, string, TDeps>,
+  envVars: CustomVariableEnv<TDeps>,
 ): Promise<string> => env(config.name);
 
 export type CustomVariableType = "string" | "number" | "boolean";

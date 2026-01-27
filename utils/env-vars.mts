@@ -1,5 +1,5 @@
 import { $ } from "zx";
-import { createGetTypedEnvVarFromEnv, env, type EnvVarsGetter, getEnvVarFromConfigName, IS_CI, type VariableConfig } from "./env-utils.mts";
+import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type VariableConfig } from "./env-utils.mts";
 
 /**
  * The declarations for all environment variables used in the pipeline.
@@ -23,17 +23,18 @@ const ENV_VAR_DECLARATIONS = [
   },
   {
     name: "UTILS_DIR",
-    local: async (config, getVar) => {
-      const ciProjectDir = getVar("CI_PROJECT_DIR");
+    deps: ["CI_PROJECT_DIR"],
+    local: async (config, env) => {
+      const ciProjectDir = env.CI_PROJECT_DIR;
       const projectDir = typeof ciProjectDir === "function" ? await ciProjectDir() : ciProjectDir;
       return `${projectDir}/utils`;
     },
-    pipeline: async (config, getVar) => {
-      const ciProjectDir = getVar("CI_PROJECT_DIR");
+    pipeline: async (config, env) => {
+      const ciProjectDir = env.CI_PROJECT_DIR;
       const projectDir = typeof ciProjectDir === "function" ? await ciProjectDir() : ciProjectDir;
       return `${projectDir}/utils`;
     },
-  },
+  } as const,
 
   // Merge request specific variables.
   {
@@ -48,29 +49,13 @@ const ENV_VAR_DECLARATIONS = [
   },
 ] as const satisfies Variable<string>[];
 
-type Variable<TName extends string> = TName | VariableConfig<TName, any>;
+type Variable<TName extends string> = TName | VariableConfig<TName, any, any>;
 
 /**
  * A map of {@link ENV_VAR_DECLARATIONS} names to the values or getter functions.
  */
 export const ENV_VARS_MAP = (() => {
   const obj: Partial<EnvVarsMap> = {};
-
-  // Create a getter function that can access other variables.
-  // Note: This is safe because simple string variables are initialized synchronously first,
-  // and custom variable functions are added next. The getVar function is only called when
-  // a custom variable function is invoked, which happens after all variables are initialized.
-  const createGetVar = (): EnvVarsGetter => {
-    return <T,>(name: string): T | (() => Promise<T>) => {
-      const value = obj[name as keyof typeof obj];
-      if (value === undefined) {
-        throw new Error(`Environment variable "${name}" is not defined or has not been initialized yet.`);
-      }
-      return value as T | (() => Promise<T>);
-    };
-  };
-
-  const getVar = createGetVar();
 
   for (const config of ENV_VAR_DECLARATIONS) {
     // Simple string variable.
@@ -85,9 +70,18 @@ export const ENV_VARS_MAP = (() => {
     const variant = IS_CI ? "pipeline" : "local";
 
     // Cast to ignore ENV_VAR_DECLARATIONS being a readonly tuple.
-    const typedConfig = config as VariableConfig<string, any>;
+    const typedConfig = config as VariableConfig<string, any, any>;
 
-    obj[config.name] = () => typedConfig[variant](config, getVar);
+    obj[config.name] = () => {
+      // Build the env object with only the declared dependencies
+      const envObj: Record<string, any> = {};
+      if (typedConfig.deps) {
+        for (const dep of typedConfig.deps) {
+          envObj[dep] = obj[dep as keyof typeof obj];
+        }
+      }
+      return typedConfig[variant](config, envObj);
+    };
   }
 
   return obj as EnvVarsMap;
