@@ -77,8 +77,8 @@ function defineVariable<
     config: VariableConfig<TName, TResult, TDeps, TEnvMap>;
     env: CustomVariableEnv<TDeps, TEnvMap>;
   }) => Promise<TResult>;
-}) {
-  return config;
+}): VariableConfig<TName, TResult, TDeps, TEnvMap> {
+  return config as VariableConfig<TName, TResult, TDeps, TEnvMap>;
 }
 
 /**
@@ -174,7 +174,7 @@ type PipelineEnvVarsRecord<TVarNames extends keyof EnvVarsMap> = {
 export type EnvVarsMap = {
   [key in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[key] extends string
     ? string
-    : EnvVarsDeclarationsMap[key] extends VariableConfig<string, infer R>
+    : EnvVarsDeclarationsMap[key] extends VariableConfig<any, infer R, any, any>
       ? () => Promise<R>
       : never;
 };
