@@ -115,7 +115,7 @@ describe("getPipelineEnvVars", () => {
       expect(value).toBe("123");
     });
 
-    it("should return getter functions for config-based variables", () => {
+    it("should return getter functions for config-based variables", async () => {
       // Given
       vi.stubEnv("CI_MERGE_REQUEST_APPROVED", "true");
       const varNames = ["CI_MERGE_REQUEST_APPROVED"] as const;
@@ -124,8 +124,8 @@ describe("getPipelineEnvVars", () => {
       const result = getPipelineEnvVars(...varNames);
 
       // Then
-      // Variables are functions that can be called
-      result.CI_MERGE_REQUEST_APPROVED();
+      const value = await result.CI_MERGE_REQUEST_APPROVED();
+      expect(value).toBe(false); // Local variant returns false
     });
 
     it("should handle empty variable list", () => {
@@ -164,7 +164,7 @@ describe("getPipelineEnvVars", () => {
       await expect(returnValue).resolves.toBe(false);
     });
 
-    it("should correctly type multiple variables with mixed types", () => {
+    it("should correctly type multiple variables with mixed types", async () => {
       // Given
       vi.stubEnv("CI_PIPELINE_IID", "123");
       vi.stubEnv("CI_MERGE_REQUEST_APPROVED", "false");
@@ -173,8 +173,10 @@ describe("getPipelineEnvVars", () => {
       const result = getPipelineEnvVars("CI_PIPELINE_IID", "CI_MERGE_REQUEST_APPROVED");
 
       // Then
-      result.CI_PIPELINE_IID();
-      result.CI_MERGE_REQUEST_APPROVED();
+      const pipelineIid = await result.CI_PIPELINE_IID();
+      const approved = await result.CI_MERGE_REQUEST_APPROVED();
+      expect(pipelineIid).toBe("123");
+      expect(approved).toBe(false);
     });
   });
 });
