@@ -267,24 +267,6 @@ describe("getLocalEnvVars", () => {
       expect(typeof result.CI_MERGE_REQUEST_APPROVED).toBe("function");
       expect(typeof result.CI_MERGE_REQUEST_IID).toBe("function");
     });
-
-    it("should handle mixed variable types", () => {
-      // Given
-      vi.stubEnv("CI_PROJECT_ID", "12345");
-      vi.stubEnv("CI_PIPELINE_IID", "789");
-
-      // When
-      const result = getLocalEnvVars();
-
-      // Then
-      // All variables are now functions
-      expect(typeof result.CI_PROJECT_ID).toBe("function");
-      expect(typeof result.CI_PIPELINE_IID).toBe("function");
-      // Variables with local field
-      expect(typeof result.CI_COMMIT_REF_NAME).toBe("function");
-      expect(typeof result.CI_MERGE_REQUEST_APPROVED).toBe("function");
-      expect(typeof result.CI_MERGE_REQUEST_IID).toBe("function");
-    });
   });
 
   describe("Getter functions execution", () => {

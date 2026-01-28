@@ -6,51 +6,51 @@ import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type 
  * All declarations must use {@link defineVariable}.
  */
 const ENV_VAR_DECLARATIONS = [
-  defineVariable({
+  defineVariable<"CI_PROJECT_ID", string, readonly []>({
     name: "CI_PROJECT_ID" as const,
-    local: async (ctx): Promise<string> => getEnvVarFromConfigName(ctx),
-    pipeline: async (ctx): Promise<string> => getEnvVarFromConfigName(ctx),
+    local: async (ctx) => getEnvVarFromConfigName(ctx),
+    pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
   }),
-  defineVariable({
+  defineVariable<"CI_PIPELINE_IID", string, readonly []>({
     name: "CI_PIPELINE_IID" as const,
-    local: async (ctx): Promise<string> => getEnvVarFromConfigName(ctx),
-    pipeline: async (ctx): Promise<string> => getEnvVarFromConfigName(ctx),
+    local: async (ctx) => getEnvVarFromConfigName(ctx),
+    pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
   }),
-  defineVariable({
+  defineVariable<"CI_COMMIT_REF_NAME", string, readonly []>({
     name: "CI_COMMIT_REF_NAME" as const,
-    local: async (): Promise<string> => {
+    local: async () => {
       const output = await $`git rev-parse --abbrev-ref HEAD`;
       return output.valueOf();
     },
-    pipeline: async (ctx): Promise<string> => getEnvVarFromConfigName(ctx),
+    pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
   }),
-  defineVariable({
+  defineVariable<"CI_PROJECT_DIR", string, readonly []>({
     name: "CI_PROJECT_DIR" as const,
-    local: async (ctx): Promise<string> => "/home/username/repos/gitlab-ci-template",
-    pipeline: async (ctx): Promise<string> => getEnvVarFromConfigName(ctx),
+    local: async (ctx) => "/home/username/repos/gitlab-ci-template",
+    pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
   }),
-  defineVariable({
+  defineVariable<"UTILS_DIR", string, readonly ["CI_PROJECT_DIR"]>({
     name: "UTILS_DIR" as const,
     deps: ["CI_PROJECT_DIR"] as const,
-    local: async (ctx): Promise<string> => {
+    local: async (ctx) => {
       const projectDir = await ctx.env.CI_PROJECT_DIR();
       return `${projectDir}/utils`;
     },
-    pipeline: async (ctx): Promise<string> => {
+    pipeline: async (ctx) => {
       const projectDir = await ctx.env.CI_PROJECT_DIR();
       return `${projectDir}/utils`;
     },
   }),
 
   // Merge request specific variables.
-  defineVariable({
+  defineVariable<"CI_MERGE_REQUEST_APPROVED", boolean, readonly []>({
     name: "CI_MERGE_REQUEST_APPROVED" as const,
-    local: async (): Promise<boolean> => false,
+    local: async () => false,
     pipeline: createGetTypedEnvVarFromEnv("boolean"),
   }),
-  defineVariable({
+  defineVariable<"CI_MERGE_REQUEST_IID", number, readonly []>({
     name: "CI_MERGE_REQUEST_IID" as const,
-    local: async (): Promise<number> => 1,
+    local: async () => 1,
     pipeline: createGetTypedEnvVarFromEnv("number"),
   }),
 ] as const satisfies Variable<string>[];
