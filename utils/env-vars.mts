@@ -6,17 +6,17 @@ import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type 
  * All declarations must use {@link defineVariable}.
  */
 const ENV_VAR_DECLARATIONS = [
-  defineVariable<"CI_PROJECT_ID", string, readonly []>({
+  defineVariable({
     name: "CI_PROJECT_ID" as const,
     local: async (ctx) => getEnvVarFromConfigName(ctx),
     pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
   }),
-  defineVariable<"CI_PIPELINE_IID", string, readonly []>({
+  defineVariable({
     name: "CI_PIPELINE_IID" as const,
     local: async (ctx) => getEnvVarFromConfigName(ctx),
     pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
   }),
-  defineVariable<"CI_COMMIT_REF_NAME", string, readonly []>({
+  defineVariable({
     name: "CI_COMMIT_REF_NAME" as const,
     local: async () => {
       const output = await $`git rev-parse --abbrev-ref HEAD`;
@@ -24,12 +24,12 @@ const ENV_VAR_DECLARATIONS = [
     },
     pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
   }),
-  defineVariable<"CI_PROJECT_DIR", string, readonly []>({
+  defineVariable({
     name: "CI_PROJECT_DIR" as const,
     local: async (ctx) => "/home/username/repos/gitlab-ci-template",
     pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
   }),
-  defineVariable<"UTILS_DIR", string, readonly ["CI_PROJECT_DIR"]>({
+  defineVariable({
     name: "UTILS_DIR" as const,
     deps: ["CI_PROJECT_DIR"] as const,
     local: async (ctx) => {
@@ -43,12 +43,12 @@ const ENV_VAR_DECLARATIONS = [
   }),
 
   // Merge request specific variables.
-  defineVariable<"CI_MERGE_REQUEST_APPROVED", boolean, readonly []>({
+  defineVariable({
     name: "CI_MERGE_REQUEST_APPROVED" as const,
     local: async () => false,
     pipeline: createGetTypedEnvVarFromEnv("boolean"),
   }),
-  defineVariable<"CI_MERGE_REQUEST_IID", number, readonly []>({
+  defineVariable({
     name: "CI_MERGE_REQUEST_IID" as const,
     local: async () => 1,
     pipeline: createGetTypedEnvVarFromEnv("number"),
@@ -88,17 +88,21 @@ type VariableContext<
  * @template TEnvMap - The environment variable type map
  */
 function defineVariable<
-  TName extends string,
-  TResult,
-  const TDeps extends readonly string[],
-  TEnvMap extends Record<string, any> = {}
->(config: {
-  readonly name: TName;
-  readonly deps?: TDeps;
-  readonly local: (ctx: VariableContext<TName, TResult, TDeps, TEnvMap>) => Promise<TResult>;
-  readonly pipeline: (ctx: VariableContext<TName, TResult, TDeps, TEnvMap>) => Promise<TResult>;
-}): VariableConfig<TName, TResult, TDeps, TEnvMap> {
-  return config as VariableConfig<TName, TResult, TDeps, TEnvMap>;
+  const TConfig extends {
+    readonly name: string;
+    readonly deps?: readonly string[];
+    readonly local: (ctx: any) => Promise<any>;
+    readonly pipeline: (ctx: any) => Promise<any>;
+  }
+>(
+  config: TConfig
+): VariableConfig<
+  TConfig["name"],
+  Awaited<ReturnType<TConfig["local"]>>,
+  TConfig["deps"] extends readonly string[] ? TConfig["deps"] : readonly [],
+  {}
+> {
+  return config as any;
 }
 
 /**
