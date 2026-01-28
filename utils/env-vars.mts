@@ -98,6 +98,53 @@ function defineVariable<
  * A map of {@link ENV_VAR_DECLARATIONS} names to the values or getter functions.
  */
 export const ENV_VARS_MAP = (() => {
+  // First pass: Build dependency graph and detect circular dependencies
+  const depGraph = new Map<string, Set<string>>();
+  
+  for (const config of ENV_VAR_DECLARATIONS) {
+    if (typeof config === "string") continue;
+    
+    const typedConfig = config as VariableConfig<any, any, any, any>;
+    if (typedConfig.deps && typedConfig.deps.length > 0) {
+      depGraph.set(typedConfig.name, new Set(typedConfig.deps as string[]));
+    }
+  }
+  
+  // Detect circular dependencies using DFS
+  const visited = new Set<string>();
+  const recStack = new Set<string>();
+  
+  const detectCycle = (node: string, path: string[]): string | null => {
+    if (recStack.has(node)) {
+      // Found a cycle, return the cycle path
+      const cycleStart = path.indexOf(node);
+      return [...path.slice(cycleStart), node].join(" -> ");
+    }
+    if (visited.has(node)) return null;
+    
+    visited.add(node);
+    recStack.add(node);
+    
+    const deps = depGraph.get(node);
+    if (deps) {
+      for (const dep of deps) {
+        const cycle = detectCycle(dep, [...path, node]);
+        if (cycle) return cycle;
+      }
+    }
+    
+    recStack.delete(node);
+    return null;
+  };
+  
+  for (const node of depGraph.keys()) {
+    const cycle = detectCycle(node, []);
+    if (cycle) {
+      throw new Error(`Circular dependency detected: ${cycle}`);
+    }
+  }
+
+  // Second pass: Build the env vars map
   const obj: Partial<EnvVarsMap> = {};
 
   for (const config of ENV_VAR_DECLARATIONS) {
@@ -234,13 +281,20 @@ type ArrayToObject<T extends readonly any[]> = {
  * internally by the defineVariable helper. When using defineVariable, type inference
  * handles the env typing automatically.
  * 
+ * **Type inference limitation**: Inside the defineVariable function body (local/pipeline),
+ * ctx.env properties have limited type inference and may appear as `any`. This is because
+ * the TEnvMap generic defaults to an empty object. While the external interface maintains
+ * type safety (you can only declare valid dependencies), developers should be careful when
+ * accessing ctx.env properties and rely on the explicit return type annotation for safety.
+ * 
  * Usage example:
  * ```ts
  * defineVariable({
  *   name: "UTILS_DIR" as const,
  *   deps: ["CI_PROJECT_DIR"] as const,
  *   local: async (ctx): Promise<string> => {
- *     // ctx.env.CI_PROJECT_DIR is automatically typed as () => Promise<string>
+ *     // Note: ctx.env.CI_PROJECT_DIR type inference is limited inside this function
+ *     // The explicit Promise<string> return type provides the main type safety
  *     const projectDir = await ctx.env.CI_PROJECT_DIR();
  *     return `${projectDir}/utils`;
  *   },
