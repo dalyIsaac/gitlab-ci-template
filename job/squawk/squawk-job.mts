@@ -7,7 +7,8 @@ const SECTION_TITLE = "squawk-check-results";
 
 jobMain(ALL_CI_PIPELINE_SOURCES, async ({ source, pipeline }) => {
   const mergeRequestIid = await getMergeRequestIid(pipeline);
-  const mr = await pipeline.api.MergeRequests.show(pipeline.env.CI_PROJECT_ID, mergeRequestIid);
+  const projectId = await pipeline.env.CI_PROJECT_ID();
+  const mr = await pipeline.api.MergeRequests.show(projectId, mergeRequestIid);
 
   const existingResults = getExistingResultsTable(mr.description ?? "");
   const allResults = await runAllChecks(pipeline, existingResults);
@@ -34,7 +35,7 @@ async function getMergeRequestIid(pipeline: PipelineConfig<"CI_PROJECT_ID" | "CI
   }
 
   // Check the API for the MR associated with this pipeline.
-  const projectId = pipeline.env.CI_PROJECT_ID;
+  const projectId = await pipeline.env.CI_PROJECT_ID();
   const refName = await pipeline.env.CI_COMMIT_REF_NAME();
 
   const mrs = await pipeline.api.MergeRequests.all({

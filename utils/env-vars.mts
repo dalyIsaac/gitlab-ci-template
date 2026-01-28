@@ -3,55 +3,62 @@ import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type 
 
 /**
  * The declarations for all environment variables used in the pipeline.
- * Each declaration can be a simple string (the variable name) or a {@link VariableConfig}.
+ * All declarations must use {@link defineVariable}.
  */
 const ENV_VAR_DECLARATIONS = [
-  "CI_PROJECT_ID",
-  "CI_PIPELINE_IID",
-  {
+  defineVariable({
+    name: "CI_PROJECT_ID",
+    local: async (ctx) => getEnvVarFromConfigName(ctx),
+    pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
+  }),
+  defineVariable({
+    name: "CI_PIPELINE_IID",
+    local: async (ctx) => getEnvVarFromConfigName(ctx),
+    pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
+  }),
+  defineVariable({
     name: "CI_COMMIT_REF_NAME",
     local: async () => {
       const output = await $`git rev-parse --abbrev-ref HEAD`;
       return output.valueOf();
     },
-    pipeline: getEnvVarFromConfigName,
-  },
-  defineVariable({
-    name: "CI_PROJECT_DIR" as const,
-    deps: [] as const,
-    local: async (ctx): Promise<string> => "/home/username/repos/gitlab-ci-template",
-    pipeline: async (ctx): Promise<string> => getEnvVarFromConfigName(ctx),
+    pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
   }),
   defineVariable({
-    name: "UTILS_DIR" as const,
+    name: "CI_PROJECT_DIR",
+    local: async (ctx) => "/home/username/repos/gitlab-ci-template",
+    pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
+  }),
+  defineVariable({
+    name: "UTILS_DIR",
     deps: ["CI_PROJECT_DIR"] as const,
-    local: async (ctx): Promise<string> => {
+    local: async (ctx) => {
       const projectDir = await ctx.env.CI_PROJECT_DIR();
       return `${projectDir}/utils`;
     },
-    pipeline: async (ctx): Promise<string> => {
+    pipeline: async (ctx) => {
       const projectDir = await ctx.env.CI_PROJECT_DIR();
       return `${projectDir}/utils`;
     },
   }),
 
   // Merge request specific variables.
-  {
+  defineVariable({
     name: "CI_MERGE_REQUEST_APPROVED",
     local: async () => false,
     pipeline: createGetTypedEnvVarFromEnv("boolean"),
-  },
-  {
+  }),
+  defineVariable({
     name: "CI_MERGE_REQUEST_IID",
     local: async () => 1,
     pipeline: createGetTypedEnvVarFromEnv("number"),
-  },
+  }),
 ] as const satisfies Variable<string>[];
 
 /**
- * Type for variable declarations - either a simple string or a VariableConfig.
+ * Type for variable declarations - must be a VariableConfig defined with defineVariable.
  */
-type Variable<TName extends string> = TName | VariableConfig<TName, any, any, any>;
+type Variable<TName extends string> = VariableConfig<TName, any, any, any>;
 
 /**
  * Context type for custom variable functions in defineVariable.
@@ -81,17 +88,21 @@ type VariableContext<
  * @template TEnvMap - The environment variable type map
  */
 function defineVariable<
-  TName extends string,
-  TResult,
-  const TDeps extends readonly string[],
-  TEnvMap extends Record<string, any> = {}
->(config: {
-  readonly name: TName;
-  readonly deps?: TDeps;
-  readonly local: (ctx: VariableContext<TName, TResult, TDeps, TEnvMap>) => Promise<TResult>;
-  readonly pipeline: (ctx: VariableContext<TName, TResult, TDeps, TEnvMap>) => Promise<TResult>;
-}): VariableConfig<TName, TResult, TDeps, TEnvMap> {
-  return config as VariableConfig<TName, TResult, TDeps, TEnvMap>;
+  const TConfig extends {
+    readonly name: string;
+    readonly deps?: readonly string[];
+    readonly local: (ctx: VariableContext<string, any, readonly string[], any>) => Promise<any>;
+    readonly pipeline: (ctx: VariableContext<string, any, readonly string[], any>) => Promise<any>;
+  }
+>(
+  config: TConfig
+): VariableConfig<
+  TConfig["name"],
+  Awaited<ReturnType<TConfig["local"]>>,
+  TConfig["deps"] extends readonly string[] ? TConfig["deps"] : readonly [],
+  {}
+> {
+  return config as any;
 }
 
 /**
@@ -102,8 +113,6 @@ export const ENV_VARS_MAP = (() => {
   const depGraph = new Map<string, Set<string>>();
   
   for (const config of ENV_VAR_DECLARATIONS) {
-    if (typeof config === "string") continue;
-    
     const typedConfig = config as VariableConfig<any, any, any, any>;
     if (typedConfig.deps && typedConfig.deps.length > 0) {
       depGraph.set(typedConfig.name, new Set(typedConfig.deps as string[]));
@@ -148,15 +157,6 @@ export const ENV_VARS_MAP = (() => {
   const obj: Partial<EnvVarsMap> = {};
 
   for (const config of ENV_VAR_DECLARATIONS) {
-    // Simple string variable.
-    if (typeof config === "string") {
-      // Create a getter which always returns the env var.
-      Object.defineProperty(obj, config, {
-        get: () => env(config),
-      });
-      continue;
-    }
-
     const variant = IS_CI ? "pipeline" : "local";
 
     // Cast to ignore ENV_VAR_DECLARATIONS being a readonly tuple.
@@ -211,28 +211,21 @@ export function getLocalEnvVars(): PipelineEnvVarsRecord<LocalVarNames> {
   const localVarNames: LocalVarNames[] = [];
 
   for (const config of ENV_VAR_DECLARATIONS) {
-    if (typeof config === "string") {
-      // Include simple string variables
-      localVarNames.push(config as LocalVarNames);
-    } else if ("local" in config) {
-      // Include variables with a local field
-      localVarNames.push(config.name as LocalVarNames);
-    }
+    // All variables have a local field
+    localVarNames.push(config.name as LocalVarNames);
   }
 
   return getPipelineEnvVars(...localVarNames);
 }
 
 /**
- * The names of all environment variables that are available locally (either as simple strings or with a `local` field).
- * Filters to only include variables that have a local implementation.
+ * The names of all environment variables that are available locally.
+ * All variables are available locally.
  */
 type LocalVarNames = {
-  [K in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[K] extends string
-    ? K  // Simple string variables are available locally
-    : EnvVarsDeclarationsMap[K] extends { local: any }
-      ? K  // Variables with a local field are available locally
-      : never;
+  [K in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[K] extends VariableConfig<any, any, any, any>
+    ? K
+    : never;
 }[keyof EnvVarsDeclarationsMap];
 
 /**
@@ -244,13 +237,12 @@ type PipelineEnvVarsRecord<TVarNames extends keyof EnvVarsMap> = {
 
 /**
  * A map of the environment variable names to the type.
+ * All variables are functions returning promises.
  */
 export type EnvVarsMap = {
-  [key in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[key] extends string
-    ? string
-    : EnvVarsDeclarationsMap[key] extends VariableConfig<any, infer R, any, any>
-      ? () => Promise<R>
-      : never;
+  [key in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[key] extends VariableConfig<any, infer R, any, any>
+    ? () => Promise<R>
+    : never;
 };
 
 /**
@@ -261,15 +253,14 @@ export type EnvVarsDeclarationsMap = ArrayToObject<typeof ENV_VAR_DECLARATIONS>;
 
 /**
  * Converts an array to an object.
+ * All elements are VariableConfig objects with a name property.
  */
 type ArrayToObject<T extends readonly any[]> = {
-  [P in T[number] as P extends string
-    ? P // If it's a string, use it as the key.
-    : P extends { name: infer N }
-      ? N extends string
-        ? N
-        : never // If it has a "name", use the name as the key.
-      : never]: P; // The value is the original type from the array.
+  [P in T[number] as P extends { name: infer N }
+    ? N extends string
+      ? N
+      : never
+    : never]: P;
 };
 
 /**

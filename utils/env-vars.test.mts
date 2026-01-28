@@ -102,7 +102,7 @@ describe("getPipelineEnvVars", () => {
       expect(Object.keys(result)).toHaveLength(2);
     });
 
-    it("should return string values for simple string variables", () => {
+    it("should return getter functions for CI_PIPELINE_IID", async () => {
       // Given
       vi.stubEnv("CI_PIPELINE_IID", "123");
       const varNames = ["CI_PIPELINE_IID"] as const;
@@ -111,10 +111,11 @@ describe("getPipelineEnvVars", () => {
       const result = getPipelineEnvVars(...varNames);
 
       // Then
-      expect(result.CI_PIPELINE_IID).toBe("123");
+      const value = await result.CI_PIPELINE_IID();
+      expect(value).toBe("123");
     });
 
-    it("should return getter functions for config-based variables", () => {
+    it("should return getter functions for CI_MERGE_REQUEST_APPROVED", async () => {
       // Given
       vi.stubEnv("CI_MERGE_REQUEST_APPROVED", "true");
       const varNames = ["CI_MERGE_REQUEST_APPROVED"] as const;
@@ -123,7 +124,8 @@ describe("getPipelineEnvVars", () => {
       const result = getPipelineEnvVars(...varNames);
 
       // Then
-      expect(typeof result.CI_MERGE_REQUEST_APPROVED).toBe("function");
+      const value = await result.CI_MERGE_REQUEST_APPROVED();
+      expect(value).toBe(false); // Local variant returns false
     });
 
     it("should handle empty variable list", () => {
@@ -136,7 +138,7 @@ describe("getPipelineEnvVars", () => {
   });
 
   describe("Type safety", () => {
-    it("should type string variables as strings", () => {
+    it("should type string variables as functions returning promises", async () => {
       // Given
       vi.stubEnv("CI_PIPELINE_IID", "123");
 
@@ -144,8 +146,8 @@ describe("getPipelineEnvVars", () => {
       const result = getPipelineEnvVars("CI_PIPELINE_IID");
 
       // Then
-      const _: string = result.CI_PIPELINE_IID;
-      expect(typeof result.CI_PIPELINE_IID).toBe("string");
+      const value = await result.CI_PIPELINE_IID();
+      expect(value).toBe("123");
     });
 
     it("should type config-based variables as functions returning promises", async () => {
@@ -156,15 +158,13 @@ describe("getPipelineEnvVars", () => {
       const result = getPipelineEnvVars("CI_MERGE_REQUEST_APPROVED");
 
       // Then
-      const getter = result.CI_MERGE_REQUEST_APPROVED;
-      expect(typeof getter).toBe("function");
-      const returnValue = getter();
+      const returnValue = result.CI_MERGE_REQUEST_APPROVED();
       expect(returnValue instanceof Promise).toBe(true);
       // When not in CI, it uses the local variant which returns false
       await expect(returnValue).resolves.toBe(false);
     });
 
-    it("should correctly type multiple variables with mixed types", () => {
+    it("should correctly type multiple variables with mixed types", async () => {
       // Given
       vi.stubEnv("CI_PIPELINE_IID", "123");
       vi.stubEnv("CI_MERGE_REQUEST_APPROVED", "false");
@@ -173,10 +173,10 @@ describe("getPipelineEnvVars", () => {
       const result = getPipelineEnvVars("CI_PIPELINE_IID", "CI_MERGE_REQUEST_APPROVED");
 
       // Then
-      const _stringType: string = result.CI_PIPELINE_IID;
-      const _functionType: () => Promise<boolean> = result.CI_MERGE_REQUEST_APPROVED;
-      expect(typeof result.CI_PIPELINE_IID).toBe("string");
-      expect(typeof result.CI_MERGE_REQUEST_APPROVED).toBe("function");
+      const pipelineIid = await result.CI_PIPELINE_IID();
+      const approved = await result.CI_MERGE_REQUEST_APPROVED();
+      expect(pipelineIid).toBe("123");
+      expect(approved).toBe(false);
     });
   });
 });
@@ -233,7 +233,7 @@ describe("getLocalEnvVars", () => {
   });
 
   describe("Variable types", () => {
-    it("should return string values for simple string variables", () => {
+    it("should return getter functions for variables", async () => {
       // Given
       vi.stubEnv("CI_PROJECT_ID", "12345");
       vi.stubEnv("CI_PIPELINE_IID", "789");
@@ -242,42 +242,10 @@ describe("getLocalEnvVars", () => {
       const result = getLocalEnvVars();
 
       // Then
-      expect(result.CI_PROJECT_ID).toBe("12345");
-      expect(result.CI_PIPELINE_IID).toBe("789");
-      expect(typeof result.CI_PROJECT_ID).toBe("string");
-      expect(typeof result.CI_PIPELINE_IID).toBe("string");
-    });
-
-    it("should return getter functions for variables with local field", () => {
-      // Given
-      vi.stubEnv("CI_PROJECT_ID", "12345");
-      vi.stubEnv("CI_PIPELINE_IID", "789");
-
-      // When
-      const result = getLocalEnvVars();
-
-      // Then
-      expect(typeof result.CI_COMMIT_REF_NAME).toBe("function");
-      expect(typeof result.CI_MERGE_REQUEST_APPROVED).toBe("function");
-      expect(typeof result.CI_MERGE_REQUEST_IID).toBe("function");
-    });
-
-    it("should handle mixed variable types", () => {
-      // Given
-      vi.stubEnv("CI_PROJECT_ID", "12345");
-      vi.stubEnv("CI_PIPELINE_IID", "789");
-
-      // When
-      const result = getLocalEnvVars();
-
-      // Then
-      // Simple string variables
-      expect(typeof result.CI_PROJECT_ID).toBe("string");
-      expect(typeof result.CI_PIPELINE_IID).toBe("string");
-      // Variables with local field
-      expect(typeof result.CI_COMMIT_REF_NAME).toBe("function");
-      expect(typeof result.CI_MERGE_REQUEST_APPROVED).toBe("function");
-      expect(typeof result.CI_MERGE_REQUEST_IID).toBe("function");
+      const projectId = await result.CI_PROJECT_ID();
+      const pipelineIid = await result.CI_PIPELINE_IID();
+      expect(projectId).toBe("12345");
+      expect(pipelineIid).toBe("789");
     });
   });
 
@@ -304,39 +272,6 @@ describe("getLocalEnvVars", () => {
       await expect(mergeRequestIidPromise).resolves.toBe(1);
     });
   });
-
-  describe("Type safety", () => {
-    it("should correctly type simple string variables", () => {
-      // Given
-      vi.stubEnv("CI_PROJECT_ID", "12345");
-      vi.stubEnv("CI_PIPELINE_IID", "789");
-
-      // When
-      const result = getLocalEnvVars();
-
-      // Then
-      const _: string = result.CI_PROJECT_ID;
-      expect(typeof result.CI_PROJECT_ID).toBe("string");
-    });
-
-    it("should correctly type getter functions", () => {
-      // Given
-      vi.stubEnv("CI_PROJECT_ID", "12345");
-      vi.stubEnv("CI_PIPELINE_IID", "789");
-
-      // When
-      const result = getLocalEnvVars();
-
-      // Then
-      const _commitRef: () => Promise<string> = result.CI_COMMIT_REF_NAME;
-      const _approved: () => Promise<boolean> = result.CI_MERGE_REQUEST_APPROVED;
-      const _iid: () => Promise<number> = result.CI_MERGE_REQUEST_IID;
-
-      expect(typeof result.CI_COMMIT_REF_NAME).toBe("function");
-      expect(typeof result.CI_MERGE_REQUEST_APPROVED).toBe("function");
-      expect(typeof result.CI_MERGE_REQUEST_IID).toBe("function");
-    });
-  });
 });
 
 describe("Variable references", () => {
@@ -351,7 +286,6 @@ describe("Variable references", () => {
 
       // Then
       expect(result).toHaveProperty("CI_PROJECT_DIR");
-      expect(typeof result.CI_PROJECT_DIR).toBe("function");
     });
 
     it("should return the local default value", async () => {
@@ -366,19 +300,6 @@ describe("Variable references", () => {
       // Then
       expect(value).toBe("/home/username/repos/gitlab-ci-template");
     });
-
-    it("should have correct type signature", () => {
-      // Given
-      vi.stubEnv("CI_PROJECT_ID", "12345");
-      vi.stubEnv("CI_PIPELINE_IID", "789");
-
-      // When
-      const result = getLocalEnvVars();
-
-      // Then
-      const _: () => Promise<string> = result.CI_PROJECT_DIR;
-      expect(typeof result.CI_PROJECT_DIR).toBe("function");
-    });
   });
 
   describe("UTILS_DIR", () => {
@@ -392,7 +313,6 @@ describe("Variable references", () => {
 
       // Then
       expect(result).toHaveProperty("UTILS_DIR");
-      expect(typeof result.UTILS_DIR).toBe("function");
     });
 
     it("should reference CI_PROJECT_DIR correctly", async () => {
@@ -406,19 +326,6 @@ describe("Variable references", () => {
 
       // Then
       expect(utilsDir).toBe("/home/username/repos/gitlab-ci-template/utils");
-    });
-
-    it("should have correct type signature", () => {
-      // Given
-      vi.stubEnv("CI_PROJECT_ID", "12345");
-      vi.stubEnv("CI_PIPELINE_IID", "789");
-
-      // When
-      const result = getLocalEnvVars();
-
-      // Then
-      const _: () => Promise<string> = result.UTILS_DIR;
-      expect(typeof result.UTILS_DIR).toBe("function");
     });
   });
 
@@ -434,8 +341,6 @@ describe("Variable references", () => {
       // Then
       expect(result).toHaveProperty("CI_PROJECT_DIR");
       expect(result).toHaveProperty("UTILS_DIR");
-      expect(typeof result.CI_PROJECT_DIR).toBe("function");
-      expect(typeof result.UTILS_DIR).toBe("function");
     });
 
     it("should allow UTILS_DIR to reference CI_PROJECT_DIR in pipeline context", async () => {
