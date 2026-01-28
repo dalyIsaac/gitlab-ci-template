@@ -26,7 +26,6 @@ const ENV_VAR_DECLARATIONS = [
   }),
   defineVariable({
     name: "CI_PROJECT_DIR" as const,
-    deps: [] as const,
     local: async (ctx): Promise<string> => "/home/username/repos/gitlab-ci-template",
     pipeline: async (ctx): Promise<string> => getEnvVarFromConfigName(ctx),
   }),
