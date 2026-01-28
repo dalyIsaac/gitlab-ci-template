@@ -16,11 +16,12 @@ const ENV_VAR_DECLARATIONS = [
     },
     pipeline: getEnvVarFromConfigName,
   },
-  {
-    name: "CI_PROJECT_DIR",
-    local: async () => "/home/username/repos/gitlab-ci-template",
-    pipeline: getEnvVarFromConfigName,
-  },
+  defineVariable({
+    name: "CI_PROJECT_DIR" as const,
+    deps: [] as const,
+    local: async (ctx): Promise<string> => "/home/username/repos/gitlab-ci-template",
+    pipeline: async (ctx): Promise<string> => getEnvVarFromConfigName(ctx),
+  }),
   defineVariable({
     name: "UTILS_DIR" as const,
     deps: ["CI_PROJECT_DIR"] as const,
@@ -90,7 +91,7 @@ function defineVariable<
   readonly local: (ctx: VariableContext<TName, TResult, TDeps, TEnvMap>) => Promise<TResult>;
   readonly pipeline: (ctx: VariableContext<TName, TResult, TDeps, TEnvMap>) => Promise<TResult>;
 }): VariableConfig<TName, TResult, TDeps, TEnvMap> {
-  return config as any as VariableConfig<TName, TResult, TDeps, TEnvMap>;
+  return config as VariableConfig<TName, TResult, TDeps, TEnvMap>;
 }
 
 /**
@@ -119,10 +120,17 @@ export const ENV_VARS_MAP = (() => {
       const envObj: any = {};
       if (typedConfig.deps) {
         for (const dep of typedConfig.deps) {
+          // Validate that the dependency exists
+          if (!(dep in obj)) {
+            throw new Error(
+              `Dependency '${dep}' for variable '${typedConfig.name}' is not defined. ` +
+              `Dependencies must be declared before the variables that depend on them.`
+            );
+          }
           envObj[dep] = obj[dep as keyof typeof obj];
         }
       }
-      return typedConfig[variant]({ config, env: envObj });
+      return typedConfig[variant]({ config: typedConfig, env: envObj });
     };
   }
 
@@ -222,17 +230,25 @@ type ArrayToObject<T extends readonly any[]> = {
  * Maps each dependency name to its actual type from EnvVarsMap.
  * This is similar to how PipelineEnvVarsRecord works.
  * 
+ * Note: This type is exported for documentation purposes but is primarily used
+ * internally by the defineVariable helper. When using defineVariable, type inference
+ * handles the env typing automatically.
+ * 
  * Usage example:
  * ```ts
- * {
- *   name: "UTILS_DIR",
+ * defineVariable({
+ *   name: "UTILS_DIR" as const,
  *   deps: ["CI_PROJECT_DIR"] as const,
- *   local: async (config, env: TypedCustomVariableEnv<["CI_PROJECT_DIR"]>) => {
- *     const dir = env.CI_PROJECT_DIR; // Properly typed as () => Promise<string>
- *     return `${await dir()}/utils`;
+ *   local: async (ctx): Promise<string> => {
+ *     // ctx.env.CI_PROJECT_DIR is automatically typed as () => Promise<string>
+ *     const projectDir = await ctx.env.CI_PROJECT_DIR();
+ *     return `${projectDir}/utils`;
  *   },
- *   ...
- * }
+ *   pipeline: async (ctx): Promise<string> => {
+ *     const projectDir = await ctx.env.CI_PROJECT_DIR();
+ *     return `${projectDir}/utils`;
+ *   },
+ * })
  * ```
  */
 export type TypedCustomVariableEnv<TDeps extends readonly (keyof EnvVarsDeclarationsMap)[]> = {

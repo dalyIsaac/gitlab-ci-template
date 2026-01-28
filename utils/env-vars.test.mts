@@ -442,87 +442,80 @@ describe("Variable references", () => {
       // Given
       vi.stubEnv("CI_PROJECT_ID", "12345");
       vi.stubEnv("CI_PIPELINE_IID", "789");
+      vi.stubEnv("CI_PROJECT_DIR", "/test/project/path");
 
       // When
       const result = getPipelineEnvVars("CI_PROJECT_DIR", "UTILS_DIR");
       const utilsDir = await result.UTILS_DIR();
 
       // Then
-      expect(utilsDir).toBe("/home/username/repos/gitlab-ci-template/utils");
+      expect(utilsDir).toBe("/test/project/path/utils");
     });
   });
 });
 
 describe("Circular dependency detection", () => {
-  it("should detect when a variable depends on itself (direct cycle)", () => {
-    // This is a compile-time and runtime validation test
-    // We can't actually create such a variable in ENV_VAR_DECLARATIONS,
-    // but we can test the theoretical scenario
+  /**
+   * Helper function to detect circular dependencies in variable declarations.
+   * Uses depth-first search (DFS) with a recursion stack to identify cycles.
+   */
+  const detectCircularDeps = (declarations: any[]): boolean => {
+    const depGraph = new Map<string, Set<string>>();
     
-    // Given: A hypothetical variable that depends on itself
-    // This would look like: { name: "A", deps: ["A"], ... }
+    // Build dependency graph
+    for (const config of declarations) {
+      if (typeof config !== "string" && config.deps) {
+        if (!depGraph.has(config.name)) {
+          depGraph.set(config.name, new Set());
+        }
+        for (const dep of config.deps) {
+          depGraph.get(config.name)!.add(dep);
+        }
+      }
+    }
     
-    // Then: Such a configuration should be caught at compile-time by TypeScript
-    // or at runtime when building ENV_VARS_MAP
+    // DFS to detect cycles
+    const visited = new Set<string>();
+    const recStack = new Set<string>();
     
-    // For now, we verify that our current declarations don't have this issue
-    expect(true).toBe(true);
-  });
-
-  it("should detect two-variable circular dependency (A -> B -> A)", () => {
-    // This tests that if we had:
-    // Variable A depends on B
-    // Variable B depends on A
-    // It would create a circular dependency
-    
-    // Since we can't easily create this in the actual declarations without breaking the build,
-    // we verify that our helper could detect it
-    
-    const detectCircularDeps = (declarations: any[]) => {
-      const depGraph = new Map<string, Set<string>>();
+    const hasCycle = (node: string): boolean => {
+      if (recStack.has(node)) return true;
+      if (visited.has(node)) return false;
       
-      for (const config of declarations) {
-        if (typeof config !== "string" && config.deps) {
-          if (!depGraph.has(config.name)) {
-            depGraph.set(config.name, new Set());
-          }
-          for (const dep of config.deps) {
-            depGraph.get(config.name)!.add(dep);
-          }
+      visited.add(node);
+      recStack.add(node);
+      
+      const deps = depGraph.get(node);
+      if (deps) {
+        for (const dep of deps) {
+          if (hasCycle(dep)) return true;
         }
       }
       
-      // DFS to detect cycles
-      const visited = new Set<string>();
-      const recStack = new Set<string>();
-      
-      const hasCycle = (node: string): boolean => {
-        if (recStack.has(node)) return true;
-        if (visited.has(node)) return false;
-        
-        visited.add(node);
-        recStack.add(node);
-        
-        const deps = depGraph.get(node);
-        if (deps) {
-          for (const dep of deps) {
-            if (hasCycle(dep)) return true;
-          }
-        }
-        
-        recStack.delete(node);
-        return false;
-      };
-      
-      for (const node of depGraph.keys()) {
-        if (hasCycle(node)) {
-          return true;
-        }
-      }
-      
+      recStack.delete(node);
       return false;
     };
     
+    for (const node of depGraph.keys()) {
+      if (hasCycle(node)) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  it("should detect when a variable depends on itself (direct cycle)", () => {
+    // Given: A variable that depends on itself
+    const declarations = [
+      { name: "A", deps: ["A"] },
+    ];
+
+    // When/Then: Should detect the self-dependency
+    expect(detectCircularDeps(declarations)).toBe(true);
+  });
+
+  it("should detect two-variable circular dependency (A -> B -> A)", () => {
     // Test with a valid configuration (no cycles)
     const validDeclarations = [
       "A",
@@ -540,118 +533,30 @@ describe("Circular dependency detection", () => {
   });
 
   it("should detect three-variable circular dependency (A -> B -> C -> A)", () => {
-    const detectCircularDeps = (declarations: any[]) => {
-      const depGraph = new Map<string, Set<string>>();
-      
-      for (const config of declarations) {
-        if (typeof config !== "string" && config.deps) {
-          if (!depGraph.has(config.name)) {
-            depGraph.set(config.name, new Set());
-          }
-          for (const dep of config.deps) {
-            depGraph.get(config.name)!.add(dep);
-          }
-        }
-      }
-      
-      const visited = new Set<string>();
-      const recStack = new Set<string>();
-      
-      const hasCycle = (node: string): boolean => {
-        if (recStack.has(node)) return true;
-        if (visited.has(node)) return false;
-        
-        visited.add(node);
-        recStack.add(node);
-        
-        const deps = depGraph.get(node);
-        if (deps) {
-          for (const dep of deps) {
-            if (hasCycle(dep)) return true;
-          }
-        }
-        
-        recStack.delete(node);
-        return false;
-      };
-      
-      for (const node of depGraph.keys()) {
-        if (hasCycle(node)) {
-          return true;
-        }
-      }
-      
-      return false;
-    };
-    
-    // Test with three-variable cycle
+    // Given: Three variables forming a cycle
     const circularDeclarations = [
       { name: "A", deps: ["B"] },
       { name: "B", deps: ["C"] },
       { name: "C", deps: ["A"] },
     ];
+
+    // When/Then: Should detect the cycle
     expect(detectCircularDeps(circularDeclarations)).toBe(true);
   });
 
   it("should verify ENV_VAR_DECLARATIONS has no circular dependencies", () => {
-    // Import the actual declarations (we'll need to import it)
-    // For now, we can at least verify the structure
-    
-    const detectCircularDeps = (declarations: any[]) => {
-      const depGraph = new Map<string, Set<string>>();
-      
-      for (const config of declarations) {
-        if (typeof config !== "string" && config.deps) {
-          if (!depGraph.has(config.name)) {
-            depGraph.set(config.name, new Set());
-          }
-          for (const dep of config.deps) {
-            depGraph.get(config.name)!.add(dep);
-          }
-        }
-      }
-      
-      const visited = new Set<string>();
-      const recStack = new Set<string>();
-      
-      const hasCycle = (node: string): boolean => {
-        if (recStack.has(node)) return true;
-        if (visited.has(node)) return false;
-        
-        visited.add(node);
-        recStack.add(node);
-        
-        const deps = depGraph.get(node);
-        if (deps) {
-          for (const dep of deps) {
-            if (hasCycle(dep)) return true;
-          }
-        }
-        
-        recStack.delete(node);
-        return false;
-      };
-      
-      for (const node of depGraph.keys()) {
-        if (hasCycle(node)) {
-          return true;
-        }
-      }
-      
-      return false;
-    };
-    
-    // Create a mock of our actual structure
+    // Given: A mock of our actual ENV_VAR_DECLARATIONS structure
     const mockDeclarations = [
       "CI_PROJECT_ID",
       "CI_PIPELINE_IID",
       { name: "CI_COMMIT_REF_NAME" },
-      { name: "CI_PROJECT_DIR" },
+      { name: "CI_PROJECT_DIR", deps: [] },
       { name: "UTILS_DIR", deps: ["CI_PROJECT_DIR"] },
       { name: "CI_MERGE_REQUEST_APPROVED" },
       { name: "CI_MERGE_REQUEST_IID" },
     ];
     
+    // When/Then: Should have no circular dependencies
     expect(detectCircularDeps(mockDeclarations)).toBe(false);
   });
 });
