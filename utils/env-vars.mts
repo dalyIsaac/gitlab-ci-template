@@ -3,19 +3,27 @@ import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type 
 
 /**
  * The declarations for all environment variables used in the pipeline.
- * Each declaration can be a simple string (the variable name) or a {@link VariableConfig}.
+ * All declarations must use {@link defineVariable}.
  */
 const ENV_VAR_DECLARATIONS = [
-  "CI_PROJECT_ID",
-  "CI_PIPELINE_IID",
-  {
-    name: "CI_COMMIT_REF_NAME",
-    local: async () => {
+  defineVariable({
+    name: "CI_PROJECT_ID" as const,
+    local: async (ctx): Promise<string> => getEnvVarFromConfigName(ctx),
+    pipeline: async (ctx): Promise<string> => getEnvVarFromConfigName(ctx),
+  }),
+  defineVariable({
+    name: "CI_PIPELINE_IID" as const,
+    local: async (ctx): Promise<string> => getEnvVarFromConfigName(ctx),
+    pipeline: async (ctx): Promise<string> => getEnvVarFromConfigName(ctx),
+  }),
+  defineVariable({
+    name: "CI_COMMIT_REF_NAME" as const,
+    local: async (): Promise<string> => {
       const output = await $`git rev-parse --abbrev-ref HEAD`;
       return output.valueOf();
     },
-    pipeline: getEnvVarFromConfigName,
-  },
+    pipeline: async (ctx): Promise<string> => getEnvVarFromConfigName(ctx),
+  }),
   defineVariable({
     name: "CI_PROJECT_DIR" as const,
     deps: [] as const,
@@ -36,22 +44,22 @@ const ENV_VAR_DECLARATIONS = [
   }),
 
   // Merge request specific variables.
-  {
-    name: "CI_MERGE_REQUEST_APPROVED",
-    local: async () => false,
+  defineVariable({
+    name: "CI_MERGE_REQUEST_APPROVED" as const,
+    local: async (): Promise<boolean> => false,
     pipeline: createGetTypedEnvVarFromEnv("boolean"),
-  },
-  {
-    name: "CI_MERGE_REQUEST_IID",
-    local: async () => 1,
+  }),
+  defineVariable({
+    name: "CI_MERGE_REQUEST_IID" as const,
+    local: async (): Promise<number> => 1,
     pipeline: createGetTypedEnvVarFromEnv("number"),
-  },
+  }),
 ] as const satisfies Variable<string>[];
 
 /**
- * Type for variable declarations - either a simple string or a VariableConfig.
+ * Type for variable declarations - must be a VariableConfig defined with defineVariable.
  */
-type Variable<TName extends string> = TName | VariableConfig<TName, any, any, any>;
+type Variable<TName extends string> = VariableConfig<TName, any, any, any>;
 
 /**
  * Context type for custom variable functions in defineVariable.
@@ -102,8 +110,6 @@ export const ENV_VARS_MAP = (() => {
   const depGraph = new Map<string, Set<string>>();
   
   for (const config of ENV_VAR_DECLARATIONS) {
-    if (typeof config === "string") continue;
-    
     const typedConfig = config as VariableConfig<any, any, any, any>;
     if (typedConfig.deps && typedConfig.deps.length > 0) {
       depGraph.set(typedConfig.name, new Set(typedConfig.deps as string[]));
@@ -148,15 +154,6 @@ export const ENV_VARS_MAP = (() => {
   const obj: Partial<EnvVarsMap> = {};
 
   for (const config of ENV_VAR_DECLARATIONS) {
-    // Simple string variable.
-    if (typeof config === "string") {
-      // Create a getter which always returns the env var.
-      Object.defineProperty(obj, config, {
-        get: () => env(config),
-      });
-      continue;
-    }
-
     const variant = IS_CI ? "pipeline" : "local";
 
     // Cast to ignore ENV_VAR_DECLARATIONS being a readonly tuple.
@@ -211,28 +208,22 @@ export function getLocalEnvVars(): PipelineEnvVarsRecord<LocalVarNames> {
   const localVarNames: LocalVarNames[] = [];
 
   for (const config of ENV_VAR_DECLARATIONS) {
-    if (typeof config === "string") {
-      // Include simple string variables
-      localVarNames.push(config as LocalVarNames);
-    } else if ("local" in config) {
-      // Include variables with a local field
-      localVarNames.push(config.name as LocalVarNames);
-    }
+    // All variables now have a local field since they're all defined with defineVariable
+    localVarNames.push(config.name as LocalVarNames);
   }
 
   return getPipelineEnvVars(...localVarNames);
 }
 
 /**
- * The names of all environment variables that are available locally (either as simple strings or with a `local` field).
- * Filters to only include variables that have a local implementation.
+ * The names of all environment variables that are available locally.
+ * Since all variables are now defined with defineVariable and have both local and pipeline implementations,
+ * all variables are available locally.
  */
 type LocalVarNames = {
-  [K in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[K] extends string
-    ? K  // Simple string variables are available locally
-    : EnvVarsDeclarationsMap[K] extends { local: any }
-      ? K  // Variables with a local field are available locally
-      : never;
+  [K in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[K] extends VariableConfig<any, any, any, any>
+    ? K
+    : never;
 }[keyof EnvVarsDeclarationsMap];
 
 /**
@@ -244,13 +235,12 @@ type PipelineEnvVarsRecord<TVarNames extends keyof EnvVarsMap> = {
 
 /**
  * A map of the environment variable names to the type.
+ * All variables are now functions returning promises since they're all defined with defineVariable.
  */
 export type EnvVarsMap = {
-  [key in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[key] extends string
-    ? string
-    : EnvVarsDeclarationsMap[key] extends VariableConfig<any, infer R, any, any>
-      ? () => Promise<R>
-      : never;
+  [key in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[key] extends VariableConfig<any, infer R, any, any>
+    ? () => Promise<R>
+    : never;
 };
 
 /**
@@ -261,15 +251,14 @@ export type EnvVarsDeclarationsMap = ArrayToObject<typeof ENV_VAR_DECLARATIONS>;
 
 /**
  * Converts an array to an object.
+ * All elements are now VariableConfig objects with a name property.
  */
 type ArrayToObject<T extends readonly any[]> = {
-  [P in T[number] as P extends string
-    ? P // If it's a string, use it as the key.
-    : P extends { name: infer N }
-      ? N extends string
-        ? N
-        : never // If it has a "name", use the name as the key.
-      : never]: P; // The value is the original type from the array.
+  [P in T[number] as P extends { name: infer N }
+    ? N extends string
+      ? N
+      : never
+    : never]: P;
 };
 
 /**

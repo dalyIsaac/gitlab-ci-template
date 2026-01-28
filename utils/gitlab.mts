@@ -15,11 +15,12 @@ export const updateMergeRequestSection = async <TPipelineConfig extends Pipeline
   sectionTitle: string,
   description: string,
 ): Promise<void> => {
-  const mr = await pipeline.api.MergeRequests.show(pipeline.env.CI_PROJECT_ID, mergeRequestIid);
+  const projectId = await pipeline.env.CI_PROJECT_ID();
+  const mr = await pipeline.api.MergeRequests.show(projectId, mergeRequestIid);
 
   const newDescription = createUpdatedMergeRequestDescriptionWithSection(mr.description || "", sectionTitle, description);
 
-  await pipeline.api.MergeRequests.edit(pipeline.env.CI_PROJECT_ID, mergeRequestIid, {
+  await pipeline.api.MergeRequests.edit(projectId, mergeRequestIid, {
     description: newDescription,
   });
 };
