@@ -7,17 +7,17 @@ import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type 
  */
 const ENV_VAR_DECLARATIONS = [
   defineVariable({
-    name: "CI_PROJECT_ID" as const,
+    name: "CI_PROJECT_ID",
     local: async (ctx) => getEnvVarFromConfigName(ctx),
     pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
   }),
   defineVariable({
-    name: "CI_PIPELINE_IID" as const,
+    name: "CI_PIPELINE_IID",
     local: async (ctx) => getEnvVarFromConfigName(ctx),
     pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
   }),
   defineVariable({
-    name: "CI_COMMIT_REF_NAME" as const,
+    name: "CI_COMMIT_REF_NAME",
     local: async () => {
       const output = await $`git rev-parse --abbrev-ref HEAD`;
       return output.valueOf();
@@ -25,12 +25,12 @@ const ENV_VAR_DECLARATIONS = [
     pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
   }),
   defineVariable({
-    name: "CI_PROJECT_DIR" as const,
+    name: "CI_PROJECT_DIR",
     local: async (ctx) => "/home/username/repos/gitlab-ci-template",
     pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
   }),
   defineVariable({
-    name: "UTILS_DIR" as const,
+    name: "UTILS_DIR",
     deps: ["CI_PROJECT_DIR"] as const,
     local: async (ctx) => {
       const projectDir = await ctx.env.CI_PROJECT_DIR();
@@ -44,12 +44,12 @@ const ENV_VAR_DECLARATIONS = [
 
   // Merge request specific variables.
   defineVariable({
-    name: "CI_MERGE_REQUEST_APPROVED" as const,
+    name: "CI_MERGE_REQUEST_APPROVED",
     local: async () => false,
     pipeline: createGetTypedEnvVarFromEnv("boolean"),
   }),
   defineVariable({
-    name: "CI_MERGE_REQUEST_IID" as const,
+    name: "CI_MERGE_REQUEST_IID",
     local: async () => 1,
     pipeline: createGetTypedEnvVarFromEnv("number"),
   }),
@@ -91,8 +91,8 @@ function defineVariable<
   const TConfig extends {
     readonly name: string;
     readonly deps?: readonly string[];
-    readonly local: (ctx: any) => Promise<any>;
-    readonly pipeline: (ctx: any) => Promise<any>;
+    readonly local: (ctx: VariableContext<string, any, readonly string[], any>) => Promise<any>;
+    readonly pipeline: (ctx: VariableContext<string, any, readonly string[], any>) => Promise<any>;
   }
 >(
   config: TConfig
