@@ -50,8 +50,10 @@ export type CustomVariableFn<
   TDeps extends readonly string[] = readonly string[],
   TEnvMap extends Record<string, any> = {}
 > = (
-  config: VariableConfig<TName, TResult, TDeps, TEnvMap>,
-  env: CustomVariableEnv<TDeps, TEnvMap>,
+  ctx: {
+    config: VariableConfig<TName, TResult, TDeps, TEnvMap>;
+    env: CustomVariableEnv<TDeps, TEnvMap>;
+  }
 ) => Promise<TResult>;
 
 /**
@@ -71,10 +73,12 @@ export type CustomVariableEnv<
 export const createGetTypedEnvVarFromEnv =
   <TCustomVariableType extends CustomVariableType>(type: TCustomVariableType) =>
   async <TName extends string, TDeps extends readonly string[] = readonly string[], TEnvMap extends Record<string, any> = {}>(
-    config: VariableConfig<TName, StringTypeToType<TCustomVariableType>, TDeps, TEnvMap>,
-    envVars: CustomVariableEnv<TDeps, TEnvMap>,
+    ctx: {
+      config: VariableConfig<TName, StringTypeToType<TCustomVariableType>, TDeps, TEnvMap>;
+      env: CustomVariableEnv<TDeps, TEnvMap>;
+    }
   ): Promise<StringTypeToType<TCustomVariableType>> => {
-    const value = env(config.name);
+    const value = env(ctx.config.name);
     return tryCastValue(value, type);
   };
 
@@ -91,14 +95,15 @@ type StringTypeToType<TCustomVariableType> = TCustomVariableType extends "number
 /**
  * Gets the value of an environment variable from the environment.
  *
- * @param config The custom variable configuration.
- * @param envVars The environment object containing declared dependencies.
+ * @param ctx The context object containing config and env.
  * @returns The value of the environment variable.
  */
 export const getEnvVarFromConfigName = async <TName extends string, TDeps extends readonly string[] = readonly string[], TEnvMap extends Record<string, any> = {}>(
-  config: VariableConfig<TName, string, TDeps, TEnvMap>,
-  envVars: CustomVariableEnv<TDeps, TEnvMap>,
-): Promise<string> => env(config.name);
+  ctx: {
+    config: VariableConfig<TName, string, TDeps, TEnvMap>;
+    env: CustomVariableEnv<TDeps, TEnvMap>;
+  }
+): Promise<string> => env(ctx.config.name);
 
 export type CustomVariableType = "string" | "number" | "boolean";
 

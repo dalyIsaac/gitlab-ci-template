@@ -35,7 +35,7 @@ describe("getEnvVarFromConfigName", () => {
     };
 
     // When
-    const result = getEnvVarFromConfigName(cfg, {});
+    const result = getEnvVarFromConfigName({ config: cfg, env: {} });
 
     // Then
     await expect(result).resolves.toBe("cfg_value");
@@ -50,7 +50,7 @@ describe("getEnvVarFromConfigName", () => {
     };
 
     // When
-    const result = getEnvVarFromConfigName(cfg, {});
+    const result = getEnvVarFromConfigName({ config: cfg, env: {} });
 
     // Then
     await expect(result).rejects.toThrow(/Environment variable "MISSING" is not defined./);
@@ -69,7 +69,7 @@ describe("createGetTypedEnvVarFromEnv", () => {
     };
 
     // When
-    const result = getTyped(cfg, {});
+    const result = getTyped({ config: cfg, env: {} });
 
     // Then
     await expect(result).resolves.toBe("hello");
@@ -86,7 +86,7 @@ describe("createGetTypedEnvVarFromEnv", () => {
     };
 
     // When
-    const result = getTyped(cfg, {});
+    const result = getTyped({ config: cfg, env: {} });
 
     // Then
     await expect(result).resolves.toBe(42);
@@ -103,7 +103,7 @@ describe("createGetTypedEnvVarFromEnv", () => {
     };
 
     // When
-    const result = getTyped(cfg, {});
+    const result = getTyped({ config: cfg, env: {} });
 
     // Then
     await expect(result).resolves.toBe(true);
@@ -119,7 +119,7 @@ describe("createGetTypedEnvVarFromEnv", () => {
     };
 
     // When
-    const result = getTyped(cfg, {});
+    const result = getTyped({ config: cfg, env: {} });
 
     // Then
     await expect(result).rejects.toThrow(/Environment variable "MISSING_TYPED" is not defined./);

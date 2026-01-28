@@ -21,15 +21,15 @@ const ENV_VAR_DECLARATIONS = [
     local: async () => "/home/username/repos/gitlab-ci-template",
     pipeline: getEnvVarFromConfigName,
   },
-  defineVariable<"UTILS_DIR", string, readonly ["CI_PROJECT_DIR"], { CI_PROJECT_DIR: () => Promise<string> }>({
+  defineVariable({
     name: "UTILS_DIR",
     deps: ["CI_PROJECT_DIR"] as const,
-    local: async (config, env) => {
-      const projectDir = await env.CI_PROJECT_DIR();
+    local: async (ctx) => {
+      const projectDir = await ctx.env.CI_PROJECT_DIR();
       return `${projectDir}/utils`;
     },
-    pipeline: async (config, env) => {
-      const projectDir = await env.CI_PROJECT_DIR();
+    pipeline: async (ctx) => {
+      const projectDir = await ctx.env.CI_PROJECT_DIR();
       return `${projectDir}/utils`;
     },
   }),
@@ -69,16 +69,16 @@ function defineVariable<
 >(config: {
   readonly name: TName;
   readonly deps?: TDeps;
-  readonly local: (
-    config: VariableConfig<TName, TResult, TDeps, TEnvMap>,
-    env: CustomVariableEnv<TDeps, TEnvMap>
-  ) => Promise<TResult>;
-  readonly pipeline: (
-    config: VariableConfig<TName, TResult, TDeps, TEnvMap>,
-    env: CustomVariableEnv<TDeps, TEnvMap>
-  ) => Promise<TResult>;
+  readonly local: (ctx: {
+    config: VariableConfig<TName, TResult, TDeps, TEnvMap>;
+    env: CustomVariableEnv<TDeps, TEnvMap>;
+  }) => Promise<TResult>;
+  readonly pipeline: (ctx: {
+    config: VariableConfig<TName, TResult, TDeps, TEnvMap>;
+    env: CustomVariableEnv<TDeps, TEnvMap>;
+  }) => Promise<TResult>;
 }) {
-  return config as const;
+  return config;
 }
 
 /**
@@ -100,7 +100,7 @@ export const ENV_VARS_MAP = (() => {
     const variant = IS_CI ? "pipeline" : "local";
 
     // Cast to ignore ENV_VAR_DECLARATIONS being a readonly tuple.
-    const typedConfig = config as VariableConfig<string, any, any>;
+    const typedConfig = config as VariableConfig<string, any, any, any>;
 
     obj[config.name] = () => {
       // Build the env object with only the declared dependencies
@@ -110,7 +110,7 @@ export const ENV_VARS_MAP = (() => {
           envObj[dep] = obj[dep as keyof typeof obj];
         }
       }
-      return typedConfig[variant](config, envObj);
+      return typedConfig[variant]({ config, env: envObj });
     };
   }
 
