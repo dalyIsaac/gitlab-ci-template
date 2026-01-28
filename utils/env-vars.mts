@@ -1,5 +1,5 @@
 import { $ } from "zx";
-import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type VariableConfig } from "./env-utils.mts";
+import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type VariableConfig, type CustomVariableEnv } from "./env-utils.mts";
 
 /**
  * The declarations for all environment variables used in the pipeline.
@@ -21,7 +21,7 @@ const ENV_VAR_DECLARATIONS = [
     local: async () => "/home/username/repos/gitlab-ci-template",
     pipeline: getEnvVarFromConfigName,
   },
-  ({
+  defineVariable<"UTILS_DIR", string, readonly ["CI_PROJECT_DIR"], { CI_PROJECT_DIR: () => Promise<string> }>({
     name: "UTILS_DIR",
     deps: ["CI_PROJECT_DIR"] as const,
     local: async (config, env) => {
@@ -32,7 +32,7 @@ const ENV_VAR_DECLARATIONS = [
       const projectDir = await env.CI_PROJECT_DIR();
       return `${projectDir}/utils`;
     },
-  } as const satisfies VariableConfig<"UTILS_DIR", string, readonly ["CI_PROJECT_DIR"], { CI_PROJECT_DIR: () => Promise<string> }>),
+  }),
 
   // Merge request specific variables.
   {
@@ -53,64 +53,33 @@ const ENV_VAR_DECLARATIONS = [
 type Variable<TName extends string> = TName | VariableConfig<TName, any, any, any>;
 
 /**
- * Detects circular dependencies in environment variable declarations.
- * @param declarations The array of variable declarations to check
- * @throws Error if a circular dependency is detected
+ * Helper function to define a variable with proper type inference.
+ * This provides type safety for the env parameter without using `as const satisfies` inline.
+ * 
+ * @template TName - The name of the variable
+ * @template TResult - The return type of the variable
+ * @template TDeps - The dependencies array type
+ * @template TEnvMap - The environment variable type map
  */
-function detectCircularDependencies(declarations: readonly any[]): void {
-  const depGraph = new Map<string, Set<string>>();
-  
-  // Build dependency graph
-  for (const config of declarations) {
-    if (typeof config !== "string" && config.deps) {
-      if (!depGraph.has(config.name)) {
-        depGraph.set(config.name, new Set());
-      }
-      for (const dep of config.deps) {
-        depGraph.get(config.name)!.add(dep);
-      }
-    }
-  }
-  
-  // DFS to detect cycles
-  const visited = new Set<string>();
-  const recStack = new Set<string>();
-  const path: string[] = [];
-  
-  const hasCycle = (node: string): boolean => {
-    if (recStack.has(node)) {
-      // Found a cycle - build the cycle path for error message
-      const cycleStart = path.indexOf(node);
-      const cyclePath = [...path.slice(cycleStart), node].join(" -> ");
-      throw new Error(`Circular dependency detected: ${cyclePath}`);
-    }
-    if (visited.has(node)) return false;
-    
-    visited.add(node);
-    recStack.add(node);
-    path.push(node);
-    
-    const deps = depGraph.get(node);
-    if (deps) {
-      for (const dep of deps) {
-        if (hasCycle(dep)) return true;
-      }
-    }
-    
-    path.pop();
-    recStack.delete(node);
-    return false;
-  };
-  
-  for (const node of depGraph.keys()) {
-    if (hasCycle(node)) {
-      return; // Error already thrown
-    }
-  }
+function defineVariable<
+  TName extends string,
+  TResult,
+  const TDeps extends readonly string[],
+  TEnvMap extends Record<string, any> = {}
+>(config: {
+  readonly name: TName;
+  readonly deps?: TDeps;
+  readonly local: (
+    config: VariableConfig<TName, TResult, TDeps, TEnvMap>,
+    env: CustomVariableEnv<TDeps, TEnvMap>
+  ) => Promise<TResult>;
+  readonly pipeline: (
+    config: VariableConfig<TName, TResult, TDeps, TEnvMap>,
+    env: CustomVariableEnv<TDeps, TEnvMap>
+  ) => Promise<TResult>;
+}) {
+  return config as const;
 }
-
-// Validate that there are no circular dependencies at module load time
-detectCircularDependencies(ENV_VAR_DECLARATIONS);
 
 /**
  * A map of {@link ENV_VAR_DECLARATIONS} names to the values or getter functions.
