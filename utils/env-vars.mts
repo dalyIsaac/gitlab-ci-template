@@ -22,13 +22,13 @@ const ENV_VAR_DECLARATIONS = [
     pipeline: getEnvVarFromConfigName,
   },
   defineVariable({
-    name: "UTILS_DIR",
+    name: "UTILS_DIR" as const,
     deps: ["CI_PROJECT_DIR"] as const,
-    local: async (ctx) => {
+    local: async (ctx): Promise<string> => {
       const projectDir = await ctx.env.CI_PROJECT_DIR();
       return `${projectDir}/utils`;
     },
-    pipeline: async (ctx) => {
+    pipeline: async (ctx): Promise<string> => {
       const projectDir = await ctx.env.CI_PROJECT_DIR();
       return `${projectDir}/utils`;
     },
@@ -78,7 +78,7 @@ function defineVariable<
     env: CustomVariableEnv<TDeps, TEnvMap>;
   }) => Promise<TResult>;
 }): VariableConfig<TName, TResult, TDeps, TEnvMap> {
-  return config as VariableConfig<TName, TResult, TDeps, TEnvMap>;
+  return config as any as VariableConfig<TName, TResult, TDeps, TEnvMap>;
 }
 
 /**
