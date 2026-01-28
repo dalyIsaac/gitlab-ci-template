@@ -158,8 +158,15 @@ export function getLocalEnvVars(): PipelineEnvVarsRecord<LocalVarNames> {
 
 /**
  * The names of all environment variables that are available locally (either as simple strings or with a `local` field).
+ * Filters to only include variables that have a local implementation.
  */
-type LocalVarNames = keyof EnvVarsDeclarationsMap;
+type LocalVarNames = {
+  [K in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[K] extends string
+    ? K  // Simple string variables are available locally
+    : EnvVarsDeclarationsMap[K] extends { local: any }
+      ? K  // Variables with a local field are available locally
+      : never;
+}[keyof EnvVarsDeclarationsMap];
 
 /**
  * A record mapping environment variable names to their types.
