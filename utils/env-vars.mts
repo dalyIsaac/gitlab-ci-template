@@ -53,6 +53,24 @@ const ENV_VAR_DECLARATIONS = [
 type Variable<TName extends string> = TName | VariableConfig<TName, any, any, any>;
 
 /**
+ * Context type for custom variable functions in defineVariable.
+ * 
+ * @template TName - The name of the variable
+ * @template TResult - The return type of the variable
+ * @template TDeps - The dependencies array type
+ * @template TEnvMap - The environment variable type map
+ */
+type VariableContext<
+  TName extends string,
+  TResult,
+  TDeps extends readonly string[],
+  TEnvMap extends Record<string, any>
+> = {
+  config: VariableConfig<TName, TResult, TDeps, TEnvMap>;
+  env: CustomVariableEnv<TDeps, TEnvMap>;
+};
+
+/**
  * Helper function to define a variable with proper type inference.
  * This provides type safety for the env parameter without using `as const satisfies` inline.
  * 
@@ -69,14 +87,8 @@ function defineVariable<
 >(config: {
   readonly name: TName;
   readonly deps?: TDeps;
-  readonly local: (ctx: {
-    config: VariableConfig<TName, TResult, TDeps, TEnvMap>;
-    env: CustomVariableEnv<TDeps, TEnvMap>;
-  }) => Promise<TResult>;
-  readonly pipeline: (ctx: {
-    config: VariableConfig<TName, TResult, TDeps, TEnvMap>;
-    env: CustomVariableEnv<TDeps, TEnvMap>;
-  }) => Promise<TResult>;
+  readonly local: (ctx: VariableContext<TName, TResult, TDeps, TEnvMap>) => Promise<TResult>;
+  readonly pipeline: (ctx: VariableContext<TName, TResult, TDeps, TEnvMap>) => Promise<TResult>;
 }): VariableConfig<TName, TResult, TDeps, TEnvMap> {
   return config as any as VariableConfig<TName, TResult, TDeps, TEnvMap>;
 }
