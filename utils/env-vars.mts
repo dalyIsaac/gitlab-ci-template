@@ -211,7 +211,7 @@ export function getLocalEnvVars(): PipelineEnvVarsRecord<LocalVarNames> {
   const localVarNames: LocalVarNames[] = [];
 
   for (const config of ENV_VAR_DECLARATIONS) {
-    // All variables now have a local field since they're all defined with defineVariable
+    // All variables have a local field
     localVarNames.push(config.name as LocalVarNames);
   }
 
@@ -220,8 +220,7 @@ export function getLocalEnvVars(): PipelineEnvVarsRecord<LocalVarNames> {
 
 /**
  * The names of all environment variables that are available locally.
- * Since all variables are now defined with defineVariable and have both local and pipeline implementations,
- * all variables are available locally.
+ * All variables are available locally.
  */
 type LocalVarNames = {
   [K in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[K] extends VariableConfig<any, any, any, any>
@@ -238,7 +237,7 @@ type PipelineEnvVarsRecord<TVarNames extends keyof EnvVarsMap> = {
 
 /**
  * A map of the environment variable names to the type.
- * All variables are now functions returning promises since they're all defined with defineVariable.
+ * All variables are functions returning promises.
  */
 export type EnvVarsMap = {
   [key in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[key] extends VariableConfig<any, infer R, any, any>
@@ -254,7 +253,7 @@ export type EnvVarsDeclarationsMap = ArrayToObject<typeof ENV_VAR_DECLARATIONS>;
 
 /**
  * Converts an array to an object.
- * All elements are now VariableConfig objects with a name property.
+ * All elements are VariableConfig objects with a name property.
  */
 type ArrayToObject<T extends readonly any[]> = {
   [P in T[number] as P extends { name: infer N }
