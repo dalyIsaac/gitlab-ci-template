@@ -102,7 +102,7 @@ describe("getPipelineEnvVars", () => {
       expect(Object.keys(result)).toHaveLength(2);
     });
 
-    it("should return getter functions for simple string variables", async () => {
+    it("should return getter functions for CI_PIPELINE_IID", async () => {
       // Given
       vi.stubEnv("CI_PIPELINE_IID", "123");
       const varNames = ["CI_PIPELINE_IID"] as const;
@@ -115,7 +115,7 @@ describe("getPipelineEnvVars", () => {
       expect(value).toBe("123");
     });
 
-    it("should return getter functions for config-based variables", async () => {
+    it("should return getter functions for CI_MERGE_REQUEST_APPROVED", async () => {
       // Given
       vi.stubEnv("CI_MERGE_REQUEST_APPROVED", "true");
       const varNames = ["CI_MERGE_REQUEST_APPROVED"] as const;
