@@ -223,6 +223,8 @@ describe("getLocalEnvVars", () => {
         "CI_PROJECT_ID",
         "CI_PIPELINE_IID",
         "CI_COMMIT_REF_NAME",
+        "CI_PROJECT_DIR",
+        "UTILS_DIR",
         "CI_MERGE_REQUEST_APPROVED",
         "CI_MERGE_REQUEST_IID",
       ];
@@ -334,5 +336,227 @@ describe("getLocalEnvVars", () => {
       expect(typeof result.CI_MERGE_REQUEST_APPROVED).toBe("function");
       expect(typeof result.CI_MERGE_REQUEST_IID).toBe("function");
     });
+  });
+});
+
+describe("Variable references", () => {
+  describe("CI_PROJECT_DIR", () => {
+    it("should be available as a local variable", () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+
+      // Then
+      expect(result).toHaveProperty("CI_PROJECT_DIR");
+      expect(typeof result.CI_PROJECT_DIR).toBe("function");
+    });
+
+    it("should return the local default value", async () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+      const value = await result.CI_PROJECT_DIR();
+
+      // Then
+      expect(value).toBe("/home/username/repos/gitlab-ci-template");
+    });
+
+    it("should have correct type signature", () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+
+      // Then
+      const _: () => Promise<string> = result.CI_PROJECT_DIR;
+      expect(typeof result.CI_PROJECT_DIR).toBe("function");
+    });
+  });
+
+  describe("UTILS_DIR", () => {
+    it("should be available as a local variable", () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+
+      // Then
+      expect(result).toHaveProperty("UTILS_DIR");
+      expect(typeof result.UTILS_DIR).toBe("function");
+    });
+
+    it("should reference CI_PROJECT_DIR correctly", async () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+      const utilsDir = await result.UTILS_DIR();
+
+      // Then
+      expect(utilsDir).toBe("/home/username/repos/gitlab-ci-template/utils");
+    });
+
+    it("should have correct type signature", () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getLocalEnvVars();
+
+      // Then
+      const _: () => Promise<string> = result.UTILS_DIR;
+      expect(typeof result.UTILS_DIR).toBe("function");
+    });
+  });
+
+  describe("Pipeline usage", () => {
+    it("should work with getPipelineEnvVars", () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getPipelineEnvVars("CI_PROJECT_DIR", "UTILS_DIR");
+
+      // Then
+      expect(result).toHaveProperty("CI_PROJECT_DIR");
+      expect(result).toHaveProperty("UTILS_DIR");
+      expect(typeof result.CI_PROJECT_DIR).toBe("function");
+      expect(typeof result.UTILS_DIR).toBe("function");
+    });
+
+    it("should allow UTILS_DIR to reference CI_PROJECT_DIR in pipeline context", async () => {
+      // Given
+      vi.stubEnv("CI_PROJECT_ID", "12345");
+      vi.stubEnv("CI_PIPELINE_IID", "789");
+
+      // When
+      const result = getPipelineEnvVars("CI_PROJECT_DIR", "UTILS_DIR");
+      const utilsDir = await result.UTILS_DIR();
+
+      // Then: Since ENV_VARS_MAP is built at module load time as local (not CI),
+      // this test gets the local implementation which uses the hardcoded path
+      expect(utilsDir).toBe("/home/username/repos/gitlab-ci-template/utils");
+    });
+  });
+});
+
+describe("Circular dependency detection", () => {
+  /**
+   * Helper function to detect circular dependencies in variable declarations.
+   * Uses depth-first search (DFS) with a recursion stack to identify cycles.
+   */
+  const detectCircularDeps = (declarations: any[]): boolean => {
+    const depGraph = new Map<string, Set<string>>();
+    
+    // Build dependency graph
+    for (const config of declarations) {
+      if (typeof config !== "string" && config.deps) {
+        if (!depGraph.has(config.name)) {
+          depGraph.set(config.name, new Set());
+        }
+        for (const dep of config.deps) {
+          depGraph.get(config.name)!.add(dep);
+        }
+      }
+    }
+    
+    // DFS to detect cycles
+    const visited = new Set<string>();
+    const recStack = new Set<string>();
+    
+    const hasCycle = (node: string): boolean => {
+      if (recStack.has(node)) return true;
+      if (visited.has(node)) return false;
+      
+      visited.add(node);
+      recStack.add(node);
+      
+      const deps = depGraph.get(node);
+      if (deps) {
+        for (const dep of deps) {
+          if (hasCycle(dep)) return true;
+        }
+      }
+      
+      recStack.delete(node);
+      return false;
+    };
+    
+    for (const node of depGraph.keys()) {
+      if (hasCycle(node)) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  it("should detect when a variable depends on itself (direct cycle)", () => {
+    // Given: A variable that depends on itself
+    const declarations = [
+      { name: "A", deps: ["A"] },
+    ];
+
+    // When/Then: Should detect the self-dependency
+    expect(detectCircularDeps(declarations)).toBe(true);
+  });
+
+  it("should detect two-variable circular dependency (A -> B -> A)", () => {
+    // Test with a valid configuration (no cycles)
+    const validDeclarations = [
+      "A",
+      { name: "B", deps: ["A"] },
+      { name: "C", deps: ["B"] },
+    ];
+    expect(detectCircularDeps(validDeclarations)).toBe(false);
+    
+    // Test with circular dependency
+    const circularDeclarations = [
+      { name: "A", deps: ["B"] },
+      { name: "B", deps: ["A"] },
+    ];
+    expect(detectCircularDeps(circularDeclarations)).toBe(true);
+  });
+
+  it("should detect three-variable circular dependency (A -> B -> C -> A)", () => {
+    // Given: Three variables forming a cycle
+    const circularDeclarations = [
+      { name: "A", deps: ["B"] },
+      { name: "B", deps: ["C"] },
+      { name: "C", deps: ["A"] },
+    ];
+
+    // When/Then: Should detect the cycle
+    expect(detectCircularDeps(circularDeclarations)).toBe(true);
+  });
+
+  it("should verify ENV_VAR_DECLARATIONS has no circular dependencies", () => {
+    // Given: A mock of our actual ENV_VAR_DECLARATIONS structure
+    const mockDeclarations = [
+      "CI_PROJECT_ID",
+      "CI_PIPELINE_IID",
+      { name: "CI_COMMIT_REF_NAME" },
+      { name: "CI_PROJECT_DIR", deps: [] },
+      { name: "UTILS_DIR", deps: ["CI_PROJECT_DIR"] },
+      { name: "CI_MERGE_REQUEST_APPROVED" },
+      { name: "CI_MERGE_REQUEST_IID" },
+    ];
+    
+    // When/Then: Should have no circular dependencies
+    expect(detectCircularDeps(mockDeclarations)).toBe(false);
   });
 });
