@@ -7,8 +7,9 @@
 export function detectCycle(depGraph: Map<string, Set<string>>): string | null {
   const visited = new Set<string>();
   const recStack = new Set<string>();
+  const path: string[] = [];
   
-  const detectCycleHelper = (node: string, path: string[]): string | null => {
+  const detectCycleHelper = (node: string): string | null => {
     if (recStack.has(node)) {
       // Found a cycle, return the cycle path
       const cycleStart = path.indexOf(node);
@@ -18,21 +19,23 @@ export function detectCycle(depGraph: Map<string, Set<string>>): string | null {
     
     visited.add(node);
     recStack.add(node);
+    path.push(node);
     
     const deps = depGraph.get(node);
     if (deps) {
       for (const dep of deps) {
-        const cycle = detectCycleHelper(dep, [...path, node]);
+        const cycle = detectCycleHelper(dep);
         if (cycle) return cycle;
       }
     }
     
     recStack.delete(node);
+    path.pop();
     return null;
   };
   
   for (const node of depGraph.keys()) {
-    const cycle = detectCycleHelper(node, []);
+    const cycle = detectCycleHelper(node);
     if (cycle) {
       return cycle;
     }
