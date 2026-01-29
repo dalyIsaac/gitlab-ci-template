@@ -1,5 +1,5 @@
 import { $ } from "zx";
-import { detectCycle } from "./cycle-detection.mts";
+import { buildDependencyGraphFromDeclarations, detectCycle } from "./cycle-detection.mts";
 import { createGetTypedEnvVarFromEnv, getEnvVarFromConfigName, IS_CI, type VariableConfig } from "./env-utils.mts";
 
 /**
@@ -89,55 +89,45 @@ function createEnvVarBuilder(): EnvVarBuilder<{}, readonly []> {
  * A map of {@link ENV_VAR_DECLARATIONS} names to the values or getter functions.
  */
 export const ENV_VARS_MAP = (() => {
-  // First pass: Build dependency graph and detect circular dependencies.
-  const depGraph = new Map<string, Set<string>>();
+  const variant = IS_CI ? "pipeline" : "local";
 
-  for (const config of ENV_VAR_DECLARATIONS) {
-    const typedConfig = config as VariableConfig<any, any, any, any>;
-    if (typedConfig.deps && typedConfig.deps.length > 0) {
-      depGraph.set(typedConfig.name, new Set(typedConfig.deps as string[]));
-    }
-  }
-
-  const cycle = detectCycle(depGraph);
+  const cycle = detectCycle(buildDependencyGraphFromDeclarations([...ENV_VAR_DECLARATIONS]));
   if (cycle) {
     throw new Error(`Circular dependency detected: ${cycle}`);
   }
 
-  // Second pass: Build the env vars map.
-  const obj: Partial<EnvVarsMap> = {};
+  const map: Partial<EnvVarsMap> = {};
 
   for (const config of ENV_VAR_DECLARATIONS) {
-    const variant = IS_CI ? "pipeline" : "local";
-
     // Cast to ignore ENV_VAR_DECLARATIONS being a readonly tuple.
     const typedConfig = config as VariableConfig<string, any, any, any>;
-
-    obj[config.name] = () => {
-      // Build the env object with only the declared dependencies.
-      const envObj: any = {};
-
-      if (typedConfig.deps === undefined) {
-        return typedConfig[variant]({ config: typedConfig, env: envObj });
-      }
-
-      for (const dep of typedConfig.deps) {
-        // Validate that the dependency exists.
-        if (!(dep in obj)) {
-          throw new Error(
-            `Dependency '${dep}' for variable '${typedConfig.name}' is not defined. ` +
-              `Dependencies must be declared before the variables that depend on them.`,
-          );
-        }
-        envObj[dep] = obj[dep as keyof typeof obj];
-      }
-
-      return typedConfig[variant]({ config: typedConfig, env: envObj });
-    };
+    map[config.name] = buildEnvGetter(map, typedConfig, variant);
   }
 
-  return obj as EnvVarsMap;
+  return map as EnvVarsMap;
 })();
+
+function buildEnvGetter(map: Partial<EnvVarsMap>, typedConfig: VariableConfig<string, any, any, any>, variant: "pipeline" | "local") {
+  return () => {
+    const envObj: any = {};
+
+    if (typedConfig.deps === undefined) {
+      return typedConfig[variant]({ config: typedConfig, env: envObj });
+    }
+
+    for (const dep of typedConfig.deps) {
+      if (!(dep in map)) {
+        throw new Error(
+          `Dependency '${dep}' for variable '${typedConfig.name}' is not defined. ` +
+            `Dependencies must be declared before the variables that depend on them.`,
+        );
+      }
+      envObj[dep] = map[dep as keyof typeof map];
+    }
+
+    return typedConfig[variant]({ config: typedConfig, env: envObj });
+  };
+}
 
 /**
  * Gets all the variables specified in {@link varNames} from the pipeline environment.

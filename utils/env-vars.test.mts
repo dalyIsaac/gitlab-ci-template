@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { detectCycle } from "./cycle-detection.mts";
+import { buildDependencyGraphFromDeclarations, detectCycle } from "./cycle-detection.mts";
 import { ENV_VARS_MAP, getLocalEnvVars, getPipelineEnvVars } from "./env-vars.mts";
 
 afterEach(() => {
@@ -366,29 +366,13 @@ describe("Circular dependency detection", () => {
    * Wraps the shared detectCycle function for test declarations format.
    */
   const detectCircularDeps = (declarations: any[]): boolean => {
-    const depGraph = new Map<string, Set<string>>();
-    
-    // Build dependency graph
-    for (const config of declarations) {
-      if (typeof config !== "string" && config.deps) {
-        if (!depGraph.has(config.name)) {
-          depGraph.set(config.name, new Set());
-        }
-        for (const dep of config.deps) {
-          depGraph.get(config.name)!.add(dep);
-        }
-      }
-    }
-    
-    // Use shared cycle detection logic
+    const depGraph = buildDependencyGraphFromDeclarations(declarations);
     return detectCycle(depGraph) !== null;
   };
 
   it("should detect when a variable depends on itself (direct cycle)", () => {
     // Given: A variable that depends on itself
-    const declarations = [
-      { name: "A", deps: ["A"] },
-    ];
+    const declarations = [{ name: "A", deps: ["A"] }];
 
     // When/Then: Should detect the self-dependency
     expect(detectCircularDeps(declarations)).toBe(true);
@@ -396,13 +380,9 @@ describe("Circular dependency detection", () => {
 
   it("should detect two-variable circular dependency (A -> B -> A)", () => {
     // Test with a valid configuration (no cycles)
-    const validDeclarations = [
-      "A",
-      { name: "B", deps: ["A"] },
-      { name: "C", deps: ["B"] },
-    ];
+    const validDeclarations = ["A", { name: "B", deps: ["A"] }, { name: "C", deps: ["B"] }];
     expect(detectCircularDeps(validDeclarations)).toBe(false);
-    
+
     // Test with circular dependency
     const circularDeclarations = [
       { name: "A", deps: ["B"] },
@@ -434,7 +414,7 @@ describe("Circular dependency detection", () => {
       { name: "CI_MERGE_REQUEST_APPROVED" },
       { name: "CI_MERGE_REQUEST_IID" },
     ];
-    
+
     // When/Then: Should have no circular dependencies
     expect(detectCircularDeps(mockDeclarations)).toBe(false);
   });

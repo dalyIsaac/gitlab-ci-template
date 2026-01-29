@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectCycle } from "./cycle-detection.mts";
+import { buildDependencyGraphFromDeclarations, detectCycle } from "./cycle-detection.mts";
 
 describe("detectCycle", () => {
   it("should return null for an empty graph", () => {
@@ -174,5 +174,89 @@ describe("detectCycle", () => {
     expect(result).toContain("C");
     expect(result).toContain("D");
     expect(result).toContain("E");
+  });
+});
+
+describe("buildDependencyGraphFromDeclarations", () => {
+  it("should return an empty graph for an empty declarations array", () => {
+    // Given
+    const declarations: any[] = [];
+
+    // When
+    const result = buildDependencyGraphFromDeclarations(declarations);
+
+    // Then
+    expect(result.size).toBe(0);
+  });
+
+  it("should build a graph for declarations with deps", () => {
+    // Given
+    const declarations = [{ name: "A" }, { name: "B", deps: ["A"] }, { name: "C", deps: ["B"] }];
+
+    // When
+    const result = buildDependencyGraphFromDeclarations(declarations);
+
+    // Then
+    expect(result.size).toBe(2);
+    expect(result.get("B")).toEqual(new Set(["A"]));
+    expect(result.get("C")).toEqual(new Set(["B"]));
+  });
+
+  it("should handle declarations with multiple dependencies", () => {
+    // Given
+    const declarations = [{ name: "A" }, { name: "B" }, { name: "C", deps: ["A", "B"] }];
+
+    // When
+    const result = buildDependencyGraphFromDeclarations(declarations);
+
+    // Then
+    expect(result.size).toBe(1);
+    expect(result.get("C")).toEqual(new Set(["A", "B"]));
+  });
+
+  it("should handle mixed string and object declarations", () => {
+    // Given
+    const declarations = ["A", { name: "B", deps: ["A"] }, "C", { name: "D", deps: ["B", "C"] }];
+
+    // When
+    const result = buildDependencyGraphFromDeclarations(declarations);
+
+    // Then
+    expect(result.size).toBe(2);
+    expect(result.get("B")).toEqual(new Set(["A"]));
+    expect(result.get("D")).toEqual(new Set(["B", "C"]));
+  });
+
+  it("should handle declarations with empty deps array", () => {
+    // Given
+    const declarations = [
+      { name: "A", deps: [] },
+      { name: "B", deps: ["A"] },
+    ];
+
+    // When
+    const result = buildDependencyGraphFromDeclarations(declarations);
+
+    // Then
+    expect(result.size).toBe(2);
+    expect(result.get("A")).toEqual(new Set());
+    expect(result.get("B")).toEqual(new Set(["A"]));
+  });
+
+  it("should build graph that can detect cycles", () => {
+    // Given: declarations that form a cycle
+    const declarations = [
+      { name: "A", deps: ["B"] },
+      { name: "B", deps: ["A"] },
+    ];
+
+    // When
+    const graph = buildDependencyGraphFromDeclarations(declarations);
+    const cycle = detectCycle(graph);
+
+    // Then
+    expect(cycle).not.toBe(null);
+    expect(cycle).toContain("A");
+    expect(cycle).toContain("B");
   });
 });
