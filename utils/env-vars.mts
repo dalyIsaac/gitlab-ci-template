@@ -9,13 +9,13 @@ import { createGetTypedEnvVarFromEnv, getEnvVarFromConfigName, IS_CI, type Varia
 const ENV_VAR_DECLARATIONS = createEnvVarBuilder()
   .add({
     name: "CI_PROJECT_ID",
-    local: async (ctx) => getEnvVarFromConfigName(ctx),
-    pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
+    local: getEnvVarFromConfigName,
+    pipeline: getEnvVarFromConfigName,
   })
   .add({
     name: "CI_PIPELINE_IID",
-    local: async (ctx) => getEnvVarFromConfigName(ctx),
-    pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
+    local: getEnvVarFromConfigName,
+    pipeline: getEnvVarFromConfigName,
   })
   .add({
     name: "CI_COMMIT_REF_NAME",
@@ -23,12 +23,12 @@ const ENV_VAR_DECLARATIONS = createEnvVarBuilder()
       const output = await $`git rev-parse --abbrev-ref HEAD`;
       return output.valueOf();
     },
-    pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
+    pipeline: getEnvVarFromConfigName,
   })
   .add({
     name: "CI_PROJECT_DIR",
     local: async (ctx) => "/home/username/repos/gitlab-ci-template",
-    pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
+    pipeline: getEnvVarFromConfigName,
   })
   .add({
     name: "UTILS_DIR",
