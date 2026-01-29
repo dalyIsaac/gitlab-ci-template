@@ -86,14 +86,14 @@ describe("EnvVarsMap type safety", () => {
   type EnvVarsMapValidation = typeof ENV_VARS_MAP extends ValidateEnvVarsMap ? true : false;
 
   it("should properly type ctx.env based on deps in defineVariable", () => {
-    // This test validates that the type system properly infers the resulting
-    // types of ENV_VARS_MAP entries based on the declared dependencies.
-    // The type checking happens at compile time.
+    // This test validates that the type system properly infers ctx.env types
+    // both in the resulting ENV_VARS_MAP entries and within the defineVariable
+    // function body during authoring. The type checking happens at compile time.
     
     // The UTILS_DIR variable in ENV_VAR_DECLARATIONS has deps: ["CI_PROJECT_DIR"].
-    // This test ensures that the resulting ENV_VARS_MAP["UTILS_DIR"] entry is
-    // typed as () => Promise<string> (and not Promise<any> or any) in its
-    // type metadata.
+    // This test ensures that:
+    // 1. The resulting ENV_VARS_MAP["UTILS_DIR"] entry is typed as () => Promise<string>
+    // 2. Within the function body, ctx.env.CI_PROJECT_DIR() is properly typed
     
     // This is a compile-time test - if the types are wrong, TypeScript will fail to compile
     type UtilsDirConfig = typeof import("./env-vars.mts")["ENV_VARS_MAP"]["UTILS_DIR"];

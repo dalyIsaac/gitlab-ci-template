@@ -3,6 +3,32 @@ import { detectCycle } from "./cycle-detection.mts";
 import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type VariableConfig, type CustomVariableEnv } from "./env-utils.mts";
 
 /**
+ * Helper type that progressively builds the environment map.
+ * This is used to provide proper type inference for ctx.env within defineVariable.
+ */
+type ProgressiveEnvMap = {
+  CI_PROJECT_ID: () => Promise<string>;
+  CI_PIPELINE_IID: () => Promise<string>;
+  CI_COMMIT_REF_NAME: () => Promise<string>;
+  CI_PROJECT_DIR: () => Promise<string>;
+  UTILS_DIR: () => Promise<string>;
+  CI_MERGE_REQUEST_APPROVED: () => Promise<boolean>;
+  CI_MERGE_REQUEST_IID: () => Promise<number>;
+};
+
+/**
+ * Builds an environment map for the given dependencies by looking up their types
+ * from ProgressiveEnvMap. This provides proper type inference within defineVariable.
+ * 
+ * @template TDeps - Array of dependency names
+ */
+type BuildProgressiveEnvMapFromDeps<TDeps extends readonly string[]> = {
+  [K in TDeps[number]]: K extends keyof ProgressiveEnvMap
+    ? ProgressiveEnvMap[K]
+    : () => Promise<any>;
+};
+
+/**
  * The declarations for all environment variables used in the pipeline.
  * All declarations must use {@link defineVariable}.
  */
@@ -33,11 +59,11 @@ const ENV_VAR_DECLARATIONS = [
   defineVariable({
     name: "UTILS_DIR",
     deps: ["CI_PROJECT_DIR"] as const,
-    local: async (ctx) => {
+    local: async (ctx): Promise<string> => {
       const projectDir = await ctx.env.CI_PROJECT_DIR();
       return `${projectDir}/utils`;
     },
-    pipeline: async (ctx) => {
+    pipeline: async (ctx): Promise<string> => {
       const projectDir = await ctx.env.CI_PROJECT_DIR();
       return `${projectDir}/utils`;
     },
@@ -98,33 +124,44 @@ type VariableContext<
 
 /**
  * Helper function to define a variable with proper type inference.
- * This provides type safety for the env parameter without using `as const satisfies` inline.
+ * This provides type safety for the env parameter by using ProgressiveEnvMap.
  * 
- * The env parameter in the context has types derived from EnvVarsMap via BuildEnvMapFromDeps,
- * which TypeScript resolves after the ENV_VAR_DECLARATIONS array (and EnvVarsMap) are fully
- * defined. Ordering and dependency correctness are enforced by runtime validation, not by
- * progressive type resolution during declaration.
- * 
- * @template TName - The name of the variable
- * @template TResult - The return type of the variable
- * @template TDeps - The dependencies array type
- * @template TEnvMap - The environment variable type map
+ * The env parameter in the context has types derived from ProgressiveEnvMap via
+ * BuildProgressiveEnvMapFromDeps, which provides proper type inference within the
+ * function body during authoring, allowing IDE autocomplete and type checking for
+ * ctx.env properties based on declared dependencies.
  */
+
+// Overload for variables with dependencies
 function defineVariable<
-  const TConfig extends {
-    readonly name: string;
-    readonly deps?: readonly string[];
-    readonly local: (ctx: VariableContext<string, any, readonly string[], any>) => Promise<any>;
-    readonly pipeline: (ctx: VariableContext<string, any, readonly string[], any>) => Promise<any>;
-  }
->(
-  config: TConfig
-): VariableConfig<
-  TConfig["name"],
-  Awaited<ReturnType<TConfig["local"]>>,
-  TConfig["deps"] extends readonly string[] ? TConfig["deps"] : readonly [],
-  BuildEnvMapFromDeps<TConfig["deps"] extends readonly string[] ? TConfig["deps"] : readonly []>
-> {
+  TName extends string,
+  TDeps extends readonly (keyof ProgressiveEnvMap)[],
+  TLocal extends (
+    ctx: VariableContext<TName, any, TDeps, BuildProgressiveEnvMapFromDeps<TDeps>>
+  ) => Promise<any>,
+  TPipeline extends (
+    ctx: VariableContext<TName, any, TDeps, BuildProgressiveEnvMapFromDeps<TDeps>>
+  ) => Promise<any>
+>(config: {
+  readonly name: TName;
+  readonly deps: TDeps;
+  readonly local: TLocal;
+  readonly pipeline: TPipeline;
+}): VariableConfig<TName, Awaited<ReturnType<TLocal>>, TDeps, BuildEnvMapFromDeps<TDeps>>;
+
+// Overload for variables without dependencies
+function defineVariable<
+  TName extends string,
+  TLocal extends (ctx: VariableContext<TName, any, readonly [], {}>) => Promise<any>,
+  TPipeline extends (ctx: VariableContext<TName, any, readonly [], {}>) => Promise<any>
+>(config: {
+  readonly name: TName;
+  readonly local: TLocal;
+  readonly pipeline: TPipeline;
+}): VariableConfig<TName, Awaited<ReturnType<TLocal>>, readonly [], {}>;
+
+// Implementation
+function defineVariable(config: any): any {
   return config as any;
 }
 
