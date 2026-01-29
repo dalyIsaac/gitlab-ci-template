@@ -1,6 +1,6 @@
 import { Gitlab } from "@gitbeaker/rest";
 import { env } from "./env-utils.mts";
-import { ENV_VARS_MAP, getLocalEnvVars, getPipelineEnvVars } from "./env-vars.mts";
+import { getLocalEnvVars, getPipelineEnvVars, type EnvVarsMap } from "./env-vars.mts";
 
 const COMMON_CI_ENV_VARS = ["CI_PROJECT_ID", "CI_COMMIT_REF_NAME", "CI_PIPELINE_IID"] as const;
 
@@ -32,17 +32,17 @@ type PipelineConfigMap = Record<CI_PIPELINE_SOURCE, PipelineConfig<any>>;
 /**
  * Configuration for a pipeline, specifying which environment variables are required.
  *
- * @template TEnvVarKeys - The names of environment variables that are required for this pipeline.
+ * @template TEnvVarKeys The names of environment variables that are required for this pipeline.
  * Defaults to `never`, meaning no environment variables are required by default. This allows each
  * specific pipeline configuration to specify exactly which environment variables it provides.
  * When using `PipelineConfig<"CI_PROJECT_ID">`, `CI_PROJECT_ID` will be a required, non-optional
  * property on the `env` object.
  */
-export interface PipelineConfig<TEnvVarKeys extends keyof typeof ENV_VARS_MAP = never> {
+export interface PipelineConfig<TEnvVarKeys extends keyof EnvVarsMap = never> {
   /**
    * The environment variables available in this pipeline.
    */
-  env: Pick<typeof ENV_VARS_MAP, TEnvVarKeys> & Partial<Pick<typeof ENV_VARS_MAP, Exclude<keyof typeof ENV_VARS_MAP, TEnvVarKeys>>>;
+  env: Pick<EnvVarsMap, TEnvVarKeys> & Partial<Pick<EnvVarsMap, Exclude<keyof EnvVarsMap, TEnvVarKeys>>>;
 
   /**
    * The GitLab API client.

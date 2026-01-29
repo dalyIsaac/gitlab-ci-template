@@ -26,17 +26,17 @@ export const env = (varName: string, fallback?: string): string => {
 
 /**
  * The configuration for an environment variable.
- * 
- * @template TName - The name of the environment variable
- * @template TResult - The return type of the variable's value
- * @template TDeps - Array of dependency variable names
- * @template TEnvMap - Map of variable names to their types
+ *
+ * @template TName The name of the environment variable
+ * @template TResult The return type of the variable's value
+ * @template TDeps Array of dependency variable names
+ * @template TEnvMap Map of variable names to their types
  */
 export interface VariableConfig<
   TName extends string,
   TResult,
   TDeps extends readonly string[] = readonly string[],
-  TEnvMap extends Record<string, any> = {}
+  TEnvMap extends Record<string, any> = {},
 > {
   name: TName;
   deps?: TDeps;
@@ -48,36 +48,26 @@ export type CustomVariableFn<
   TName extends string,
   TResult = string,
   TDeps extends readonly string[] = readonly string[],
-  TEnvMap extends Record<string, any> = {}
-> = (
-  ctx: {
-    config: VariableConfig<TName, TResult, TDeps, TEnvMap>;
-    env: CustomVariableEnv<TDeps, TEnvMap>;
-  }
-) => Promise<TResult>;
+  TEnvMap extends Record<string, any> = {},
+> = (ctx: { config: VariableConfig<TName, TResult, TDeps, TEnvMap>; env: CustomVariableEnv<TDeps, TEnvMap> }) => Promise<TResult>;
 
 /**
  * Environment object containing only the declared dependencies for a custom variable function.
  * This will be specialized per use-site to map dependency names to their actual types.
- * 
- * @template TDeps - Array of dependency names
- * @template TEnvMap - Map of variable names to their types (defaults to empty object)
+ *
+ * @template TDeps Array of dependency names
+ * @template TEnvMap Map of variable names to their types (defaults to empty object)
  */
-export type CustomVariableEnv<
-  TDeps extends readonly string[],
-  TEnvMap extends Record<string, any> = {}
-> = {
+export type CustomVariableEnv<TDeps extends readonly string[], TEnvMap extends Record<string, any> = {}> = {
   [K in TDeps[number]]: K extends keyof TEnvMap ? TEnvMap[K] : any;
 };
 
 export const createGetTypedEnvVarFromEnv =
   <TCustomVariableType extends CustomVariableType>(type: TCustomVariableType) =>
-  async <TName extends string, TDeps extends readonly string[] = readonly string[], TEnvMap extends Record<string, any> = {}>(
-    ctx: {
-      config: VariableConfig<TName, StringTypeToType<TCustomVariableType>, TDeps, TEnvMap>;
-      env: CustomVariableEnv<TDeps, TEnvMap>;
-    }
-  ): Promise<StringTypeToType<TCustomVariableType>> => {
+  async <TName extends string, TDeps extends readonly string[] = readonly string[], TEnvMap extends Record<string, any> = {}>(ctx: {
+    config: VariableConfig<TName, StringTypeToType<TCustomVariableType>, TDeps, TEnvMap>;
+    env: CustomVariableEnv<TDeps, TEnvMap>;
+  }): Promise<StringTypeToType<TCustomVariableType>> => {
     const value = env(ctx.config.name);
     return tryCastValue(value, type);
   };
@@ -98,12 +88,14 @@ type StringTypeToType<TCustomVariableType> = TCustomVariableType extends "number
  * @param ctx The context object containing config and env.
  * @returns The value of the environment variable.
  */
-export const getEnvVarFromConfigName = async <TName extends string, TDeps extends readonly string[] = readonly string[], TEnvMap extends Record<string, any> = {}>(
-  ctx: {
-    config: VariableConfig<TName, string, TDeps, TEnvMap>;
-    env: CustomVariableEnv<TDeps, TEnvMap>;
-  }
-): Promise<string> => env(ctx.config.name);
+export const getEnvVarFromConfigName = async <
+  TName extends string,
+  TDeps extends readonly string[] = readonly string[],
+  TEnvMap extends Record<string, any> = {},
+>(ctx: {
+  config: VariableConfig<TName, string, TDeps, TEnvMap>;
+  env: CustomVariableEnv<TDeps, TEnvMap>;
+}): Promise<string> => env(ctx.config.name);
 
 export type CustomVariableType = "string" | "number" | "boolean";
 
