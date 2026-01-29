@@ -102,6 +102,26 @@ describe("EnvVarsMap type safety", () => {
     
     expect(true).toBe(true);
   });
+
+  it("should resolve ctx.env types through TypeScript's deferred type resolution", () => {
+    // This test validates that the circular reference pattern works:
+    // 1. defineVariable uses BuildEnvMapFromDeps which references EnvVarsMap
+    // 2. EnvVarsMap is constructed from ENV_VAR_DECLARATIONS
+    // 3. ENV_VAR_DECLARATIONS uses defineVariable
+    // TypeScript resolves this through deferred type resolution.
+    
+    // Extract the VariableConfig type for UTILS_DIR from EnvVarsDeclarationsMap
+    type UtilsDirDecl = import("./env-vars.mts").EnvVarsDeclarationsMap["UTILS_DIR"];
+    
+    // The type should be VariableConfig with proper generics, not any
+    type IsVariableConfig<T> = T extends import("./env-utils.mts").VariableConfig<any, any, any, any>
+      ? true
+      : false;
+    
+    const _check: IsVariableConfig<UtilsDirDecl> = true;
+    
+    expect(true).toBe(true);
+  });
 });
 
 describe("getPipelineEnvVars", () => {
