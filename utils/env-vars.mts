@@ -1,171 +1,145 @@
 import { $ } from "zx";
 import { detectCycle } from "./cycle-detection.mts";
-import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type VariableConfig } from "./env-utils.mts";
+import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type VariableConfig, type CustomVariableEnv } from "./env-utils.mts";
 
 /**
- * Environment Variable Architecture
- * ==================================
- * 
- * This module uses a progressive, staged approach to define environment variables with
- * full type safety and automatic type inference, without requiring explicit return type
- * annotations.
- * 
- * Key Features:
- * - Variables are defined in stages, allowing later variables to depend on earlier ones
- * - Type inference works automatically - no need for explicit return type annotations
- * - ctx.env properties are properly typed during authoring with IDE autocomplete
- * - No circular type dependencies
- * - No manual maintenance of type maps
- * 
- * Architecture:
- * 1. Stage 1: Define base variables without dependencies using defineSimpleVariable()
- * 2. Build Stage1EnvMap type from stage 1 variables
- * 3. Stage 2+: Define dependent variables using defineVariableWithDeps() with the env map
- * 4. Combine all variables into ENV_VAR_DECLARATIONS array
- * 
- * Example:
- * ```typescript
- * // Stage 1: Base variable
- * const CI_PROJECT_DIR = defineSimpleVariable({
- *   name: "CI_PROJECT_DIR" as const,
- *   local: async () => "/home/user/project",
- *   pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
- * });
- * 
- * // Build type map
- * type Stage1EnvMap = {
- *   CI_PROJECT_DIR: () => Promise<string>;
- * };
- * 
- * // Stage 2: Dependent variable
- * const UTILS_DIR = defineVariableWithDeps({
- *   name: "UTILS_DIR" as const,
- *   deps: ["CI_PROJECT_DIR"] as const,
- *   envMap: {} as Stage1EnvMap,
- *   local: async (ctx) => {
- *     // projectDir is automatically typed as string!
- *     const projectDir = await ctx.env.CI_PROJECT_DIR();
- *     return `${projectDir}/utils`;
- *   },
- *   pipeline: async (ctx) => { ... },
- * });
- * ```
+ * The declarations for all environment variables used in the pipeline.
+ * All declarations must use {@link defineVariable}.
  */
+const ENV_VAR_DECLARATIONS = [
+  defineVariable({
+    name: "CI_PROJECT_ID",
+    local: async (ctx) => getEnvVarFromConfigName(ctx),
+    pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
+  }),
+  defineVariable({
+    name: "CI_PIPELINE_IID",
+    local: async (ctx) => getEnvVarFromConfigName(ctx),
+    pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
+  }),
+  defineVariable({
+    name: "CI_COMMIT_REF_NAME",
+    local: async () => {
+      const output = await $`git rev-parse --abbrev-ref HEAD`;
+      return output.valueOf();
+    },
+    pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
+  }),
+  defineVariable({
+    name: "CI_PROJECT_DIR",
+    local: async (ctx) => "/home/username/repos/gitlab-ci-template",
+    pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
+  }),
+  defineVariable({
+    name: "UTILS_DIR",
+    deps: ["CI_PROJECT_DIR"] as const,
+    local: async (ctx) => {
+      const projectDir = await ctx.env.CI_PROJECT_DIR();
+      return `${projectDir}/utils`;
+    },
+    pipeline: async (ctx) => {
+      const projectDir = await ctx.env.CI_PROJECT_DIR();
+      return `${projectDir}/utils`;
+    },
+  }),
+
+  // Merge request specific variables.
+  defineVariable({
+    name: "CI_MERGE_REQUEST_APPROVED",
+    local: async () => false,
+    pipeline: createGetTypedEnvVarFromEnv("boolean"),
+  }),
+  defineVariable({
+    name: "CI_MERGE_REQUEST_IID",
+    local: async () => 1,
+    pipeline: createGetTypedEnvVarFromEnv("number"),
+  }),
+] as const satisfies Variable<string>[];
 
 /**
- * Helper to define a variable without dependencies.
- * The return type is automatically inferred from the function.
+ * Type for variable declarations - must be a VariableConfig defined with defineVariable.
  */
-function defineSimpleVariable<
-  TName extends string,
-  TLocalResult,
-  TPipelineResult
->(config: {
-  readonly name: TName;
-  readonly local: () => Promise<TLocalResult>;
-  readonly pipeline: (ctx: { config: any; env: {} }) => Promise<TPipelineResult>;
-}): VariableConfig<TName, TLocalResult, readonly [], {}> {
-  return config as any;
-}
+type Variable<TName extends string> = VariableConfig<TName, any, any, any>;
 
 /**
- * Helper to define a variable with dependencies.
- * The env parameter is typed based on the provided TEnvMap.
- * Return types are automatically inferred from the function implementations.
+ * Type map for environment variables used during authoring for ctx.env typing.
+ * This is a minimal map that should match the actual variable return types.
  */
-function defineVariableWithDeps<
-  TName extends string,
-  TDeps extends readonly string[],
-  TEnvMap extends Record<string, () => Promise<any>>,
-  TLocalResult,
-  TPipelineResult
->(config: {
-  readonly name: TName;
-  readonly deps: TDeps;
-  readonly envMap: TEnvMap;
-  readonly local: (ctx: { config: any; env: Pick<TEnvMap, TDeps[number]> }) => Promise<TLocalResult>;
-  readonly pipeline: (ctx: { config: any; env: Pick<TEnvMap, TDeps[number]> }) => Promise<TPipelineResult>;
-}): VariableConfig<TName, TLocalResult, TDeps, Pick<TEnvMap, TDeps[number]>> {
-  const { envMap, ...rest } = config;
-  return rest as any;
-}
-
-// Stage 1: Define variables without dependencies
-const CI_PROJECT_ID = defineSimpleVariable({
-  name: "CI_PROJECT_ID" as const,
-  local: async () => env("CI_PROJECT_ID"),
-  pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
-});
-
-const CI_PIPELINE_IID = defineSimpleVariable({
-  name: "CI_PIPELINE_IID" as const,
-  local: async () => env("CI_PIPELINE_IID"),
-  pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
-});
-
-const CI_COMMIT_REF_NAME = defineSimpleVariable({
-  name: "CI_COMMIT_REF_NAME" as const,
-  local: async () => {
-    const output = await $`git rev-parse --abbrev-ref HEAD`;
-    return output.valueOf();
-  },
-  pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
-});
-
-const CI_PROJECT_DIR = defineSimpleVariable({
-  name: "CI_PROJECT_DIR" as const,
-  local: async () => "/home/username/repos/gitlab-ci-template",
-  pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
-});
-
-// Stage 2: Build type map from stage 1 variables
-type Stage1EnvMap = {
+type EnvVarTypesForAuthoring = {
   CI_PROJECT_ID: () => Promise<string>;
   CI_PIPELINE_IID: () => Promise<string>;
   CI_COMMIT_REF_NAME: () => Promise<string>;
   CI_PROJECT_DIR: () => Promise<string>;
+  UTILS_DIR: () => Promise<string>;
+  CI_MERGE_REQUEST_APPROVED: () => Promise<boolean>;
+  CI_MERGE_REQUEST_IID: () => Promise<number>;
 };
 
-// Stage 3: Define variables with dependencies on stage 1
-const UTILS_DIR = defineVariableWithDeps({
-  name: "UTILS_DIR" as const,
-  deps: ["CI_PROJECT_DIR"] as const,
-  envMap: {} as Stage1EnvMap,
-  local: async (ctx) => {
-    const projectDir = await ctx.env.CI_PROJECT_DIR();
-    return `${projectDir}/utils`;
-  },
-  pipeline: async (ctx) => {
-    const projectDir = await ctx.env.CI_PROJECT_DIR();
-    return `${projectDir}/utils`;
-  },
-});
-
-// Stage 4: Define remaining variables
-const CI_MERGE_REQUEST_APPROVED = defineSimpleVariable({
-  name: "CI_MERGE_REQUEST_APPROVED" as const,
-  local: async () => false,
-  pipeline: createGetTypedEnvVarFromEnv("boolean"),
-});
-
-const CI_MERGE_REQUEST_IID = defineSimpleVariable({
-  name: "CI_MERGE_REQUEST_IID" as const,
-  local: async () => 1,
-  pipeline: createGetTypedEnvVarFromEnv("number"),
-});
+/**
+ * Helper type to build environment map from dependencies.
+ */
+type BuildEnvMapFromDeps<TDeps extends readonly string[]> = {
+  [K in TDeps[number]]: K extends keyof EnvVarTypesForAuthoring
+    ? EnvVarTypesForAuthoring[K]
+    : () => Promise<any>;
+};
 
 /**
- * The declarations for all environment variables used in the pipeline.
+ * Context type for custom variable functions in defineVariable.
+ * 
+ * @template TName - The name of the variable
+ * @template TResult - The return type of the variable
+ * @template TDeps - The dependencies array type
+ * @template TEnvMap - The environment variable type map
  */
-const ENV_VAR_DECLARATIONS = [
-  CI_PROJECT_ID,
-  CI_PIPELINE_IID,
-  CI_COMMIT_REF_NAME,
-  CI_PROJECT_DIR,
-  UTILS_DIR,
-  CI_MERGE_REQUEST_APPROVED,
-  CI_MERGE_REQUEST_IID,
-] as const satisfies readonly VariableConfig<string, any, any, any>[];
+type VariableContext<
+  TName extends string,
+  TResult,
+  TDeps extends readonly string[],
+  TEnvMap extends Record<string, any>
+> = {
+  config: VariableConfig<TName, TResult, TDeps, TEnvMap>;
+  env: CustomVariableEnv<TDeps, TEnvMap>;
+};
+
+/**
+ * Helper function to define a variable with proper type inference.
+ * This provides type safety for the env parameter.
+ * The ctx.env properties are typed based on the declared dependencies.
+ */
+
+// Overload for variables with dependencies
+function defineVariable<
+  TName extends string,
+  TDeps extends readonly string[],
+  TLocal extends (
+    ctx: VariableContext<TName, any, TDeps, BuildEnvMapFromDeps<TDeps>>
+  ) => Promise<any>,
+  TPipeline extends (
+    ctx: VariableContext<TName, any, TDeps, BuildEnvMapFromDeps<TDeps>>
+  ) => Promise<any>
+>(config: {
+  readonly name: TName;
+  readonly deps: TDeps;
+  readonly local: TLocal;
+  readonly pipeline: TPipeline;
+}): VariableConfig<TName, Awaited<ReturnType<TLocal>>, TDeps, {}>;
+
+// Overload for variables without dependencies
+function defineVariable<
+  TName extends string,
+  TLocal extends (ctx: VariableContext<TName, any, readonly [], {}>) => Promise<any>,
+  TPipeline extends (ctx: VariableContext<TName, any, readonly [], {}>) => Promise<any>
+>(config: {
+  readonly name: TName;
+  readonly local: TLocal;
+  readonly pipeline: TPipeline;
+}): VariableConfig<TName, Awaited<ReturnType<TLocal>>, readonly [], {}>;
+
+// Implementation
+function defineVariable(config: any): any {
+  return config as any;
+}
 
 /**
  * A map of {@link ENV_VAR_DECLARATIONS} names to the values or getter functions.
@@ -299,46 +273,35 @@ type ArrayToObject<T extends readonly any[]> = {
 
 /**
  * Properly typed environment object for custom variable functions.
+ * Maps each dependency name to its actual type from EnvVarsMap.
+ * This is similar to how PipelineEnvVarsRecord works.
  * 
- * With the progressive, staged architecture, environment variables with dependencies
- * have properly typed ctx.env parameters during authoring. The type system automatically
- * infers return types without requiring explicit annotations.
+ * Note: This type is exported for documentation purposes but is primarily used
+ * internally by the defineVariable helper. When using defineVariable, type inference
+ * handles the env typing automatically.
  * 
- * The staged approach:
- * 1. Define variables without dependencies using defineSimpleVariable()
- * 2. Build a type map from those variables
- * 3. Use that type map with defineVariableWithDeps() for dependent variables
- * 4. ctx.env properties are fully typed with IDE autocomplete support
+ * **Type inference limitation**: Inside the defineVariable function body (local/pipeline),
+ * ctx.env properties have limited type inference and may appear as `any`. This is because
+ * the TEnvMap generic defaults to an empty object. While the external interface maintains
+ * type safety (you can only declare valid dependencies), developers should be careful when
+ * accessing ctx.env properties and rely on the explicit return type annotation for safety.
  * 
  * Usage example:
  * ```ts
- * // Stage 1: Base variable
- * const CI_PROJECT_DIR = defineSimpleVariable({
- *   name: "CI_PROJECT_DIR" as const,
- *   local: async () => "/home/user/project",
- *   pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
- * });
- * 
- * // Stage 1 type map
- * type Stage1EnvMap = {
- *   CI_PROJECT_DIR: () => Promise<string>;
- * };
- * 
- * // Stage 2: Dependent variable with automatic type inference
- * const UTILS_DIR = defineVariableWithDeps({
+ * defineVariable({
  *   name: "UTILS_DIR" as const,
  *   deps: ["CI_PROJECT_DIR"] as const,
- *   envMap: {} as Stage1EnvMap,
- *   local: async (ctx) => {
- *     // projectDir is automatically inferred as string - no explicit type needed!
+ *   local: async (ctx): Promise<string> => {
+ *     // Note: ctx.env.CI_PROJECT_DIR type inference is limited inside this function
+ *     // The explicit Promise<string> return type provides the main type safety
  *     const projectDir = await ctx.env.CI_PROJECT_DIR();
  *     return `${projectDir}/utils`;
  *   },
- *   pipeline: async (ctx) => {
+ *   pipeline: async (ctx): Promise<string> => {
  *     const projectDir = await ctx.env.CI_PROJECT_DIR();
  *     return `${projectDir}/utils`;
  *   },
- * });
+ * })
  * ```
  */
 export type TypedCustomVariableEnv<TDeps extends readonly (keyof EnvVarsDeclarationsMap)[]> = {
