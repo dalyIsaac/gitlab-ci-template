@@ -1,36 +1,36 @@
 import { $ } from "zx";
 import { detectCycle } from "./cycle-detection.mts";
-import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type VariableConfig, type CustomVariableEnv } from "./env-utils.mts";
+import { createGetTypedEnvVarFromEnv, getEnvVarFromConfigName, IS_CI, type VariableConfig } from "./env-utils.mts";
 
 /**
  * The declarations for all environment variables used in the pipeline.
- * All declarations must use {@link defineVariable}.
+ * Dependencies are typed from previously declared variables.
  */
-const ENV_VAR_DECLARATIONS = [
-  defineVariable({
+const ENV_VAR_DECLARATIONS = createEnvVarBuilder()
+  .add({
     name: "CI_PROJECT_ID",
     local: async (ctx) => getEnvVarFromConfigName(ctx),
     pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
-  }),
-  defineVariable({
+  })
+  .add({
     name: "CI_PIPELINE_IID",
     local: async (ctx) => getEnvVarFromConfigName(ctx),
     pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
-  }),
-  defineVariable({
+  })
+  .add({
     name: "CI_COMMIT_REF_NAME",
     local: async () => {
       const output = await $`git rev-parse --abbrev-ref HEAD`;
       return output.valueOf();
     },
     pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
-  }),
-  defineVariable({
+  })
+  .add({
     name: "CI_PROJECT_DIR",
     local: async (ctx) => "/home/username/repos/gitlab-ci-template",
     pipeline: async (ctx) => getEnvVarFromConfigName(ctx),
-  }),
-  defineVariable({
+  })
+  .add({
     name: "UTILS_DIR",
     deps: ["CI_PROJECT_DIR"] as const,
     local: async (ctx) => {
@@ -41,92 +41,70 @@ const ENV_VAR_DECLARATIONS = [
       const projectDir = await ctx.env.CI_PROJECT_DIR();
       return `${projectDir}/utils`;
     },
-  }),
+  })
 
   // Merge request specific variables.
-  defineVariable({
+  .add({
     name: "CI_MERGE_REQUEST_APPROVED",
     local: async () => false,
     pipeline: createGetTypedEnvVarFromEnv("boolean"),
-  }),
-  defineVariable({
+  })
+  .add({
     name: "CI_MERGE_REQUEST_IID",
     local: async () => 1,
     pipeline: createGetTypedEnvVarFromEnv("number"),
-  }),
-] as const satisfies Variable<string>[];
+  })
+  .build();
 
 /**
- * Type for variable declarations - must be a VariableConfig defined with defineVariable.
+ * Builder types for defining env vars with typed dependencies.
  */
-type Variable<TName extends string> = VariableConfig<TName, any, any, any>;
+type EnvVarGetterMap = Record<string, () => Promise<any>>;
 
-/**
- * Context type for custom variable functions in defineVariable.
- * 
- * @template TName - The name of the variable
- * @template TResult - The return type of the variable
- * @template TDeps - The dependencies array type
- * @template TEnvMap - The environment variable type map
- */
-type VariableContext<
-  TName extends string,
-  TResult,
-  TDeps extends readonly string[],
-  TEnvMap extends Record<string, any>
-> = {
-  config: VariableConfig<TName, TResult, TDeps, TEnvMap>;
-  env: CustomVariableEnv<TDeps, TEnvMap>;
+type EnvVarBuilder<TEnvMap extends EnvVarGetterMap, TConfigs extends readonly VariableConfig<any, any, any, any>[]> = {
+  add<const TConfig extends VariableConfig<string, any, readonly Extract<keyof TEnvMap, string>[], TEnvMap>>(
+    config: TConfig,
+  ): EnvVarBuilder<
+    TEnvMap & { [K in TConfig["name"]]: () => Promise<Awaited<ReturnType<TConfig["local"]>>> },
+    readonly [...TConfigs, TConfig]
+  >;
+  build(): TConfigs;
 };
 
-/**
- * Helper function to define a variable with proper type inference.
- * This provides type safety for the env parameter without using `as const satisfies` inline.
- * 
- * @template TName - The name of the variable
- * @template TResult - The return type of the variable
- * @template TDeps - The dependencies array type
- * @template TEnvMap - The environment variable type map
- */
-function defineVariable<
-  const TConfig extends {
-    readonly name: string;
-    readonly deps?: readonly string[];
-    readonly local: (ctx: VariableContext<string, any, readonly string[], any>) => Promise<any>;
-    readonly pipeline: (ctx: VariableContext<string, any, readonly string[], any>) => Promise<any>;
-  }
->(
-  config: TConfig
-): VariableConfig<
-  TConfig["name"],
-  Awaited<ReturnType<TConfig["local"]>>,
-  TConfig["deps"] extends readonly string[] ? TConfig["deps"] : readonly [],
-  {}
-> {
-  return config as any;
+function createEnvVarBuilder(): EnvVarBuilder<{}, readonly []> {
+  const configs: VariableConfig<any, any, any, any>[] = [];
+  const builder = {
+    add(config: VariableConfig<any, any, any, any>) {
+      configs.push(config);
+      return builder as any;
+    },
+    build() {
+      return configs as any;
+    },
+  };
+  return builder as any;
 }
 
 /**
  * A map of {@link ENV_VAR_DECLARATIONS} names to the values or getter functions.
  */
 export const ENV_VARS_MAP = (() => {
-  // First pass: Build dependency graph and detect circular dependencies
+  // First pass: Build dependency graph and detect circular dependencies.
   const depGraph = new Map<string, Set<string>>();
-  
+
   for (const config of ENV_VAR_DECLARATIONS) {
     const typedConfig = config as VariableConfig<any, any, any, any>;
     if (typedConfig.deps && typedConfig.deps.length > 0) {
       depGraph.set(typedConfig.name, new Set(typedConfig.deps as string[]));
     }
   }
-  
-  // Detect circular dependencies using DFS
+
   const cycle = detectCycle(depGraph);
   if (cycle) {
     throw new Error(`Circular dependency detected: ${cycle}`);
   }
 
-  // Second pass: Build the env vars map
+  // Second pass: Build the env vars map.
   const obj: Partial<EnvVarsMap> = {};
 
   for (const config of ENV_VAR_DECLARATIONS) {
@@ -136,20 +114,24 @@ export const ENV_VARS_MAP = (() => {
     const typedConfig = config as VariableConfig<string, any, any, any>;
 
     obj[config.name] = () => {
-      // Build the env object with only the declared dependencies
+      // Build the env object with only the declared dependencies.
       const envObj: any = {};
-      if (typedConfig.deps) {
-        for (const dep of typedConfig.deps) {
-          // Validate that the dependency exists
-          if (!(dep in obj)) {
-            throw new Error(
-              `Dependency '${dep}' for variable '${typedConfig.name}' is not defined. ` +
-              `Dependencies must be declared before the variables that depend on them.`
-            );
-          }
-          envObj[dep] = obj[dep as keyof typeof obj];
-        }
+
+      if (typedConfig.deps === undefined) {
+        return typedConfig[variant]({ config: typedConfig, env: envObj });
       }
+
+      for (const dep of typedConfig.deps) {
+        // Validate that the dependency exists.
+        if (!(dep in obj)) {
+          throw new Error(
+            `Dependency '${dep}' for variable '${typedConfig.name}' is not defined. ` +
+              `Dependencies must be declared before the variables that depend on them.`,
+          );
+        }
+        envObj[dep] = obj[dep as keyof typeof obj];
+      }
+
       return typedConfig[variant]({ config: typedConfig, env: envObj });
     };
   }
@@ -196,9 +178,7 @@ export function getLocalEnvVars(): PipelineEnvVarsRecord<LocalVarNames> {
  * All variables are available locally.
  */
 type LocalVarNames = {
-  [K in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[K] extends VariableConfig<any, any, any, any>
-    ? K
-    : never;
+  [K in keyof EnvVarsDeclarationsMap]: EnvVarsDeclarationsMap[K] extends VariableConfig<any, any, any, any> ? K : never;
 }[keyof EnvVarsDeclarationsMap];
 
 /**
@@ -229,46 +209,5 @@ export type EnvVarsDeclarationsMap = ArrayToObject<typeof ENV_VAR_DECLARATIONS>;
  * All elements are VariableConfig objects with a name property.
  */
 type ArrayToObject<T extends readonly any[]> = {
-  [P in T[number] as P extends { name: infer N }
-    ? N extends string
-      ? N
-      : never
-    : never]: P;
-};
-
-/**
- * Properly typed environment object for custom variable functions.
- * Maps each dependency name to its actual type from EnvVarsMap.
- * This is similar to how PipelineEnvVarsRecord works.
- * 
- * Note: This type is exported for documentation purposes but is primarily used
- * internally by the defineVariable helper. When using defineVariable, type inference
- * handles the env typing automatically.
- * 
- * **Type inference limitation**: Inside the defineVariable function body (local/pipeline),
- * ctx.env properties have limited type inference and may appear as `any`. This is because
- * the TEnvMap generic defaults to an empty object. While the external interface maintains
- * type safety (you can only declare valid dependencies), developers should be careful when
- * accessing ctx.env properties and rely on the explicit return type annotation for safety.
- * 
- * Usage example:
- * ```ts
- * defineVariable({
- *   name: "UTILS_DIR" as const,
- *   deps: ["CI_PROJECT_DIR"] as const,
- *   local: async (ctx): Promise<string> => {
- *     // Note: ctx.env.CI_PROJECT_DIR type inference is limited inside this function
- *     // The explicit Promise<string> return type provides the main type safety
- *     const projectDir = await ctx.env.CI_PROJECT_DIR();
- *     return `${projectDir}/utils`;
- *   },
- *   pipeline: async (ctx): Promise<string> => {
- *     const projectDir = await ctx.env.CI_PROJECT_DIR();
- *     return `${projectDir}/utils`;
- *   },
- * })
- * ```
- */
-export type TypedCustomVariableEnv<TDeps extends readonly (keyof EnvVarsDeclarationsMap)[]> = {
-  [K in TDeps[number]]: EnvVarsMap[K];
+  [P in T[number] as P extends { name: infer N } ? (N extends string ? N : never) : never]: P;
 };
