@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { detectCycle } from "./cycle-detection.mts";
 import { ENV_VARS_MAP, getLocalEnvVars, getPipelineEnvVars } from "./env-vars.mts";
 
 afterEach(() => {
@@ -362,7 +363,7 @@ describe("Variable references", () => {
 describe("Circular dependency detection", () => {
   /**
    * Helper function to detect circular dependencies in variable declarations.
-   * Uses depth-first search (DFS) with a recursion stack to identify cycles.
+   * Wraps the shared detectCycle function for test declarations format.
    */
   const detectCircularDeps = (declarations: any[]): boolean => {
     const depGraph = new Map<string, Set<string>>();
@@ -379,35 +380,8 @@ describe("Circular dependency detection", () => {
       }
     }
     
-    // DFS to detect cycles
-    const visited = new Set<string>();
-    const recStack = new Set<string>();
-    
-    const hasCycle = (node: string): boolean => {
-      if (recStack.has(node)) return true;
-      if (visited.has(node)) return false;
-      
-      visited.add(node);
-      recStack.add(node);
-      
-      const deps = depGraph.get(node);
-      if (deps) {
-        for (const dep of deps) {
-          if (hasCycle(dep)) return true;
-        }
-      }
-      
-      recStack.delete(node);
-      return false;
-    };
-    
-    for (const node of depGraph.keys()) {
-      if (hasCycle(node)) {
-        return true;
-      }
-    }
-    
-    return false;
+    // Use shared cycle detection logic
+    return detectCycle(depGraph) !== null;
   };
 
   it("should detect when a variable depends on itself (direct cycle)", () => {

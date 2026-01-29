@@ -1,4 +1,5 @@
 import { $ } from "zx";
+import { detectCycle } from "./cycle-detection.mts";
 import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, IS_CI, type VariableConfig, type CustomVariableEnv } from "./env-utils.mts";
 
 /**
@@ -120,37 +121,9 @@ export const ENV_VARS_MAP = (() => {
   }
   
   // Detect circular dependencies using DFS
-  const visited = new Set<string>();
-  const recStack = new Set<string>();
-  
-  const detectCycle = (node: string, path: string[]): string | null => {
-    if (recStack.has(node)) {
-      // Found a cycle, return the cycle path
-      const cycleStart = path.indexOf(node);
-      return [...path.slice(cycleStart), node].join(" -> ");
-    }
-    if (visited.has(node)) return null;
-    
-    visited.add(node);
-    recStack.add(node);
-    
-    const deps = depGraph.get(node);
-    if (deps) {
-      for (const dep of deps) {
-        const cycle = detectCycle(dep, [...path, node]);
-        if (cycle) return cycle;
-      }
-    }
-    
-    recStack.delete(node);
-    return null;
-  };
-  
-  for (const node of depGraph.keys()) {
-    const cycle = detectCycle(node, []);
-    if (cycle) {
-      throw new Error(`Circular dependency detected: ${cycle}`);
-    }
+  const cycle = detectCycle(depGraph);
+  if (cycle) {
+    throw new Error(`Circular dependency detected: ${cycle}`);
   }
 
   // Second pass: Build the env vars map
