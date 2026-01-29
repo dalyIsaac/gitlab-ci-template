@@ -34,62 +34,60 @@ export function detectCycle(depGraph: Map<string, Set<string>>): string | null {
   const visited = new Set<string>();
   const recursionStack = new Set<string>();
   const path: string[] = [];
-  const pathIndex = new Map<string, number>();
 
   for (const node of depGraph.keys()) {
-    if (visited.has(node)) {
-      continue;
-    }
-
-    const stack: Array<{
-      node: string;
-      entered: boolean;
-      iterator?: Iterator<string>;
-    }> = [{ node, entered: false }];
-
-    while (stack.length > 0) {
-      const frame = stack[stack.length - 1];
-
-      if (!frame.entered) {
-        frame.entered = true;
-
-        if (visited.has(frame.node)) {
-          stack.pop();
-          continue;
-        }
-
-        visited.add(frame.node);
-        recursionStack.add(frame.node);
-        pathIndex.set(frame.node, path.length);
-        path.push(frame.node);
-
-        const deps = depGraph.get(frame.node) ?? new Set<string>();
-        frame.iterator = deps.values();
-      }
-
-      const next = frame.iterator?.next();
-
-      if (next && !next.done) {
-        const dep = next.value;
-
-        if (recursionStack.has(dep)) {
-          const cycleStart = pathIndex.get(dep) ?? path.indexOf(dep);
-          return [...path.slice(cycleStart), dep].join(" -> ");
-        }
-
-        if (!visited.has(dep)) {
-          stack.push({ node: dep, entered: false });
-        }
-
-        continue;
-      }
-
-      recursionStack.delete(frame.node);
-      pathIndex.delete(frame.node);
-      path.pop();
-      stack.pop();
+    const cycle = detectCycleHelper(node, depGraph, visited, recursionStack, path);
+    if (cycle) {
+      return cycle;
     }
   }
 
+  return null;
+}
+
+/**
+ * Traverses the graph from a starting node to detect cycles.
+ *
+ * @param node The current node to visit.
+ * @param depGraph The dependency graph to traverse.
+ * @param visited The set of nodes already fully explored.
+ * @param recursionStack The set of nodes in the current DFS path.
+ * @param path The ordered path of nodes in the current DFS stack.
+ * @returns The cycle path as a string if a cycle is detected, null otherwise.
+ */
+function detectCycleHelper(
+  node: string,
+  depGraph: Map<string, Set<string>>,
+  visited: Set<string>,
+  recursionStack: Set<string>,
+  path: string[],
+): string | null {
+  if (recursionStack.has(node)) {
+    // Found a cycle, return the cycle path.
+    const cycleStart = path.indexOf(node);
+    return [...path.slice(cycleStart), node].join(" -> ");
+  }
+
+  if (visited.has(node)) {
+    return null;
+  }
+
+  visited.add(node);
+  recursionStack.add(node);
+  path.push(node);
+
+  const deps = depGraph.get(node);
+  if (deps) {
+    for (const dep of deps) {
+      const cycle = detectCycleHelper(dep, depGraph, visited, recursionStack, path);
+
+      if (cycle) {
+        return cycle;
+      }
+    }
+  }
+
+  recursionStack.delete(node);
+  path.pop();
   return null;
 }
