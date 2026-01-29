@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDependencyGraphFromDeclarations, detectCycle } from "./cycle-detection.mts";
+import { buildDependencyGraphFromDeclarations, detectCycle } from "./deps-graph.mts";
 
 describe("detectCycle", () => {
   it("should return null for an empty graph", () => {

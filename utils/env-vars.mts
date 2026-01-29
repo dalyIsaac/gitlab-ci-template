@@ -1,5 +1,5 @@
 import { $ } from "zx";
-import { buildDependencyGraphFromDeclarations, detectCycle } from "./cycle-detection.mts";
+import { buildDependencyGraphFromDeclarations, detectCycle } from "./deps-graph.mts";
 import { createGetTypedEnvVarFromEnv, getEnvVarFromConfigName, IS_CI, type VariableConfig } from "./env-utils.mts";
 
 /**

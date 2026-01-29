@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildDependencyGraphFromDeclarations, detectCycle } from "./cycle-detection.mts";
+import { buildDependencyGraphFromDeclarations, detectCycle } from "./deps-graph.mts";
 import { ENV_VARS_MAP, getLocalEnvVars, getPipelineEnvVars, type EnvVarsMap } from "./env-vars.mts";
 
 afterEach(() => {
