@@ -66,9 +66,9 @@ type Variable<TName extends string> = VariableConfig<TName, any, any, any>;
  * from EnvVarsMap. This is a forward reference that will be resolved at type-checking time,
  * after EnvVarsMap is fully defined.
  * 
- * This allows ctx.env to have proper typing based on the declared dependencies.
+ * This provides proper type metadata for the VariableConfig based on declared dependencies.
  * For dependencies that exist in EnvVarsMap, it maps to their proper function type.
- * For dependencies that don't exist yet, it falls back to () => Promise<any>.
+ * For dependencies that do not exist in EnvVarsMap (e.g., typos or undeclared variables), it falls back to () => Promise<any>.
  * 
  * @template TDeps - Array of dependency names
  */
@@ -100,9 +100,10 @@ type VariableContext<
  * Helper function to define a variable with proper type inference.
  * This provides type safety for the env parameter without using `as const satisfies` inline.
  * 
- * The env parameter in the context will have proper types for dependencies that have been
- * declared earlier in the ENV_VAR_DECLARATIONS array. The type system builds up the map
- * progressively as each variable is declared.
+ * The env parameter in the context has types derived from EnvVarsMap via BuildEnvMapFromDeps,
+ * which TypeScript resolves after the ENV_VAR_DECLARATIONS array (and EnvVarsMap) are fully
+ * defined. Ordering and dependency correctness are enforced by runtime validation, not by
+ * progressive type resolution during declaration.
  * 
  * @template TName - The name of the variable
  * @template TResult - The return type of the variable
@@ -266,9 +267,14 @@ type ArrayToObject<T extends readonly any[]> = {
  * internally by the defineVariable helper. When using defineVariable, type inference
  * handles the env typing automatically based on the declared dependencies.
  * 
- * The type system will properly infer types for dependencies that have been declared
- * earlier in the ENV_VAR_DECLARATIONS array. Dependencies are resolved from the
- * EnvVarsMap, providing full type safety and IDE autocomplete within the function bodies.
+ * TypeScript resolves EnvVarsMap through deferred resolution, meaning the entire map is
+ * resolved at once after the module is fully parsed. The BuildEnvMapFromDeps type provides
+ * correct type metadata in the returned VariableConfig, improving type safety for the
+ * resulting environment variable getters.
+ * 
+ * Note: Within the defineVariable function body itself, ctx.env properties are typed as 'any'
+ * due to the generic parameter constraints. The proper typing applies to the type metadata of
+ * the returned VariableConfig, not to IDE autocomplete when authoring the function.
  * 
  * Usage example:
  * ```ts
@@ -276,7 +282,8 @@ type ArrayToObject<T extends readonly any[]> = {
  *   name: "UTILS_DIR" as const,
  *   deps: ["CI_PROJECT_DIR"] as const,
  *   local: async (ctx): Promise<string> => {
- *     // ctx.env.CI_PROJECT_DIR is properly typed as () => Promise<string>
+ *     // Note: ctx.env.CI_PROJECT_DIR is typed as 'any' during authoring
+ *     // Explicit return type annotation provides the main type safety
  *     const projectDir = await ctx.env.CI_PROJECT_DIR();
  *     return `${projectDir}/utils`;
  *   },
