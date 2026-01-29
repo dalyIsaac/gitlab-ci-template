@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildDependencyGraphFromDeclarations, detectCycle } from "./cycle-detection.mts";
-import { ENV_VARS_MAP, getLocalEnvVars, getPipelineEnvVars } from "./env-vars.mts";
+import { ENV_VAR_DECLARATIONS, ENV_VARS_MAP, getLocalEnvVars, getPipelineEnvVars } from "./env-vars.mts";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -404,18 +404,7 @@ describe("Circular dependency detection", () => {
   });
 
   it("should verify ENV_VAR_DECLARATIONS has no circular dependencies", () => {
-    // Given: A mock of our actual ENV_VAR_DECLARATIONS structure
-    const mockDeclarations = [
-      "CI_PROJECT_ID",
-      "CI_PIPELINE_IID",
-      { name: "CI_COMMIT_REF_NAME" },
-      { name: "CI_PROJECT_DIR", deps: [] },
-      { name: "UTILS_DIR", deps: ["CI_PROJECT_DIR"] },
-      { name: "CI_MERGE_REQUEST_APPROVED" },
-      { name: "CI_MERGE_REQUEST_IID" },
-    ];
-
     // When/Then: Should have no circular dependencies
-    expect(detectCircularDeps(mockDeclarations)).toBe(false);
+    expect(detectCircularDeps(ENV_VAR_DECLARATIONS)).toBe(false);
   });
 });

@@ -6,7 +6,7 @@ import { createGetTypedEnvVarFromEnv, getEnvVarFromConfigName, IS_CI, type Varia
  * The declarations for all environment variables used in the pipeline.
  * Dependencies are typed from previously declared variables.
  */
-const ENV_VAR_DECLARATIONS = createEnvVarBuilder()
+export const ENV_VAR_DECLARATIONS = createEnvVarBuilder()
   .add({
     name: "CI_PROJECT_ID",
     local: getEnvVarFromConfigName,
