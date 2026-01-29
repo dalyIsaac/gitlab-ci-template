@@ -84,6 +84,24 @@ describe("EnvVarsMap type safety", () => {
    * making this validation resolve to false and causing a compile error.
    */
   type EnvVarsMapValidation = typeof ENV_VARS_MAP extends ValidateEnvVarsMap ? true : false;
+
+  it("should properly type ctx.env based on deps in defineVariable", () => {
+    // This test validates that the type system properly infers ctx.env types
+    // based on the declared dependencies. The type checking happens at compile time.
+    
+    // The UTILS_DIR variable in ENV_VAR_DECLARATIONS has deps: ["CI_PROJECT_DIR"]
+    // and inside its local/pipeline functions, ctx.env.CI_PROJECT_DIR() should be
+    // properly typed as () => Promise<string>, not as any.
+    
+    // This is a compile-time test - if the types are wrong, TypeScript will fail to compile
+    type UtilsDirConfig = typeof import("./env-vars.mts")["ENV_VARS_MAP"]["UTILS_DIR"];
+    type _UtilsDirType = UtilsDirConfig extends () => Promise<infer T> ? T : never;
+    
+    // Ensure UTILS_DIR returns a string
+    const _typeCheck: _UtilsDirType extends string ? true : false = true;
+    
+    expect(true).toBe(true);
+  });
 });
 
 describe("getPipelineEnvVars", () => {

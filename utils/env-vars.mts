@@ -62,6 +62,23 @@ const ENV_VAR_DECLARATIONS = [
 type Variable<TName extends string> = VariableConfig<TName, any, any, any>;
 
 /**
+ * Builds an environment map for the given dependencies by looking up their types
+ * from EnvVarsMap. This is a forward reference that will be resolved at type-checking time,
+ * after EnvVarsMap is fully defined.
+ * 
+ * This allows ctx.env to have proper typing based on the declared dependencies.
+ * For dependencies that exist in EnvVarsMap, it maps to their proper function type.
+ * For dependencies that don't exist yet, it falls back to () => Promise<any>.
+ * 
+ * @template TDeps - Array of dependency names
+ */
+type BuildEnvMapFromDeps<TDeps extends readonly string[]> = {
+  [K in TDeps[number]]: K extends keyof EnvVarsMap
+    ? EnvVarsMap[K]
+    : () => Promise<any>;
+};
+
+/**
  * Context type for custom variable functions in defineVariable.
  * 
  * @template TName - The name of the variable
@@ -83,6 +100,10 @@ type VariableContext<
  * Helper function to define a variable with proper type inference.
  * This provides type safety for the env parameter without using `as const satisfies` inline.
  * 
+ * The env parameter in the context will have proper types for dependencies that have been
+ * declared earlier in the ENV_VAR_DECLARATIONS array. The type system builds up the map
+ * progressively as each variable is declared.
+ * 
  * @template TName - The name of the variable
  * @template TResult - The return type of the variable
  * @template TDeps - The dependencies array type
@@ -101,7 +122,7 @@ function defineVariable<
   TConfig["name"],
   Awaited<ReturnType<TConfig["local"]>>,
   TConfig["deps"] extends readonly string[] ? TConfig["deps"] : readonly [],
-  {}
+  BuildEnvMapFromDeps<TConfig["deps"] extends readonly string[] ? TConfig["deps"] : readonly []>
 > {
   return config as any;
 }
@@ -243,13 +264,11 @@ type ArrayToObject<T extends readonly any[]> = {
  * 
  * Note: This type is exported for documentation purposes but is primarily used
  * internally by the defineVariable helper. When using defineVariable, type inference
- * handles the env typing automatically.
+ * handles the env typing automatically based on the declared dependencies.
  * 
- * **Type inference limitation**: Inside the defineVariable function body (local/pipeline),
- * ctx.env properties have limited type inference and may appear as `any`. This is because
- * the TEnvMap generic defaults to an empty object. While the external interface maintains
- * type safety (you can only declare valid dependencies), developers should be careful when
- * accessing ctx.env properties and rely on the explicit return type annotation for safety.
+ * The type system will properly infer types for dependencies that have been declared
+ * earlier in the ENV_VAR_DECLARATIONS array. Dependencies are resolved from the
+ * EnvVarsMap, providing full type safety and IDE autocomplete within the function bodies.
  * 
  * Usage example:
  * ```ts
@@ -257,8 +276,7 @@ type ArrayToObject<T extends readonly any[]> = {
  *   name: "UTILS_DIR" as const,
  *   deps: ["CI_PROJECT_DIR"] as const,
  *   local: async (ctx): Promise<string> => {
- *     // Note: ctx.env.CI_PROJECT_DIR type inference is limited inside this function
- *     // The explicit Promise<string> return type provides the main type safety
+ *     // ctx.env.CI_PROJECT_DIR is properly typed as () => Promise<string>
  *     const projectDir = await ctx.env.CI_PROJECT_DIR();
  *     return `${projectDir}/utils`;
  *   },
