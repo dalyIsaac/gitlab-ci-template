@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, type VariableConfig } from "./env-utils.mts";
+import {
+  createGetEnvVarFromConfigName,
+  createGetTypedEnvVarFromEnv,
+  env,
+  getEnvVarFromConfigName,
+  type VariableConfig,
+} from "./env-utils.mts";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -74,18 +80,37 @@ describe("getEnvVarFromConfigName", () => {
     // Then
     await expect(result).rejects.toThrow(/Environment variable "MISSING" is not defined./);
   });
+});
 
-  it("should use default value when env variable is undefined", async () => {
+describe("createGetEnvVarFromConfigName", () => {
+  it("should return the value from environment using config name", async () => {
     // Given
-    const cfg: VariableConfig<"WITH_DEFAULT", string, []> = {
-      name: "WITH_DEFAULT",
-      default: "default_value",
+    vi.stubEnv("CFG_VAR", "cfg_value");
+    const getWithDefault = createGetEnvVarFromConfigName();
+    const cfg: VariableConfig<"CFG_VAR", string, []> = {
+      name: "CFG_VAR",
       local: async () => "local",
       pipeline: async () => "pipeline",
     };
 
     // When
-    const result = getEnvVarFromConfigName({ config: cfg, env: {} });
+    const result = getWithDefault({ config: cfg, env: {} });
+
+    // Then
+    await expect(result).resolves.toBe("cfg_value");
+  });
+
+  it("should use default value when env variable is undefined", async () => {
+    // Given
+    const getWithDefault = createGetEnvVarFromConfigName("default_value");
+    const cfg: VariableConfig<"WITH_DEFAULT", string, []> = {
+      name: "WITH_DEFAULT",
+      local: async () => "local",
+      pipeline: async () => "pipeline",
+    };
+
+    // When
+    const result = getWithDefault({ config: cfg, env: {} });
 
     // Then
     await expect(result).resolves.toBe("default_value");
@@ -94,15 +119,15 @@ describe("getEnvVarFromConfigName", () => {
   it("should prefer env variable over default value", async () => {
     // Given
     vi.stubEnv("OVERRIDE_VAR", "env_value");
+    const getWithDefault = createGetEnvVarFromConfigName("default_value");
     const cfg: VariableConfig<"OVERRIDE_VAR", string, []> = {
       name: "OVERRIDE_VAR",
-      default: "default_value",
       local: async () => "local",
       pipeline: async () => "pipeline",
     };
 
     // When
-    const result = getEnvVarFromConfigName({ config: cfg, env: {} });
+    const result = getWithDefault({ config: cfg, env: {} });
 
     // Then
     await expect(result).resolves.toBe("env_value");
@@ -179,10 +204,9 @@ describe("createGetTypedEnvVarFromEnv", () => {
 
   it("should use default string value when env var is missing", async () => {
     // Given
-    const getTyped = createGetTypedEnvVarFromEnv("string");
+    const getTyped = createGetTypedEnvVarFromEnv("string", "default_string");
     const cfg: VariableConfig<"DEFAULT_STR", string, []> = {
       name: "DEFAULT_STR",
-      default: "default_string",
       local: async () => "local",
       pipeline: async () => "pipeline",
     };
@@ -196,10 +220,9 @@ describe("createGetTypedEnvVarFromEnv", () => {
 
   it("should cast default number value", async () => {
     // Given
-    const getTyped = createGetTypedEnvVarFromEnv("number");
+    const getTyped = createGetTypedEnvVarFromEnv("number", "100");
     const cfg: VariableConfig<"DEFAULT_NUM", number, []> = {
       name: "DEFAULT_NUM",
-      default: "100",
       local: async () => 0,
       pipeline: async () => 0,
     };
@@ -213,10 +236,9 @@ describe("createGetTypedEnvVarFromEnv", () => {
 
   it("should cast default boolean value", async () => {
     // Given
-    const getTyped = createGetTypedEnvVarFromEnv("boolean");
+    const getTyped = createGetTypedEnvVarFromEnv("boolean", "false");
     const cfg: VariableConfig<"DEFAULT_BOOL", boolean, []> = {
       name: "DEFAULT_BOOL",
-      default: "false",
       local: async () => true,
       pipeline: async () => true,
     };
@@ -231,10 +253,9 @@ describe("createGetTypedEnvVarFromEnv", () => {
   it("should prefer env value over default for typed values", async () => {
     // Given
     vi.stubEnv("OVERRIDE_NUM", "999");
-    const getTyped = createGetTypedEnvVarFromEnv("number");
+    const getTyped = createGetTypedEnvVarFromEnv("number", "100");
     const cfg: VariableConfig<"OVERRIDE_NUM", number, []> = {
       name: "OVERRIDE_NUM",
-      default: "100",
       local: async () => 0,
       pipeline: async () => 0,
     };
