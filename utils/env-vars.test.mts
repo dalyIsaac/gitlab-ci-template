@@ -408,3 +408,35 @@ describe("Circular dependency detection", () => {
     expect(Object.keys(ENV_VARS_MAP).length).toBeGreaterThan(0);
   });
 });
+describe("add with pipeline-only variables", () => {
+  it("should throw an error when accessing a pipeline-only variable in local environment", async () => {
+    // Given: A pipeline-only variable in ENV_VARS_MAP
+    // When: Attempting to access GITLAB_TOKEN locally
+    const getter = ENV_VARS_MAP.GITLAB_TOKEN;
+
+    // Then: Should throw an error
+    await expect(getter()).rejects.toThrow('Pipeline-only variable "GITLAB_TOKEN" is not available in local environments.');
+  });
+
+  it("should not include pipeline-only variables in getLocalEnvVars", () => {
+    // Given/When: Getting all local environment variables
+    const result = getLocalEnvVars();
+
+    // Then: Should include all non-pipeline-only variables but exclude pipeline-only ones
+    expect(result).toHaveProperty("CI_PROJECT_ID");
+    expect(result).toHaveProperty("CI_PIPELINE_IID");
+    expect(result).not.toHaveProperty("GITLAB_TOKEN");
+  });
+
+  it("should be accessible via getPipelineEnvVars", () => {
+    // Given: A pipeline-only variable
+    vi.stubEnv("GITLAB_TOKEN", "pipeline-token-value");
+
+    // When: Getting the pipeline-only variable via getPipelineEnvVars
+    const result = getPipelineEnvVars("GITLAB_TOKEN");
+
+    // Then: Should have the pipeline-only variable getter
+    expect(result).toHaveProperty("GITLAB_TOKEN");
+    expect(typeof result.GITLAB_TOKEN).toBe("function");
+  });
+});

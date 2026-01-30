@@ -23,7 +23,8 @@ type AddConfigReturn<
  * @template TConfigs The list of variable configurations added so far.
  */
 class EnvVarBuilder<TEnvMap extends EnvVarGetterMap, TConfigs extends readonly VariableConfig<any, any, any, any>[]> {
-  private readonly configs: VariableConfig<any, any, any, any>[] = [];
+  #configs: VariableConfig<any, any, any, any>[] = [];
+  #pipelineOnlyNames = new Set<string>();
 
   /**
    * Adds a new variable configuration to the builder.
@@ -31,24 +32,48 @@ class EnvVarBuilder<TEnvMap extends EnvVarGetterMap, TConfigs extends readonly V
    * @template TName The name of the environment variable.
    * @template TDeps The names of the environment variables that this variable depends on.
    * @template TConfig The variable configuration being added.
-   * @param config The variable configuration to add.
+   * @param config The variable configuration to add. If `local` is omitted, the variable will be pipeline-only.
    * @returns A new `EnvVarBuilder` instance with the added configuration.
    */
-  // Overload 1: no deps -> `ctx.env` is empty, so access is disallowed.
-  // This preserves a strict empty dependency list for config functions.
+  // Overload 1: no deps, with local -> `ctx.env` is empty, so access is disallowed.
   add<const TName extends string, const TConfig extends VariableConfig<TName, any, readonly [], TEnvMap>>(
     config: TConfig & { deps?: undefined },
   ): AddConfigReturn<TEnvMap, TConfigs, TConfig>;
-  // Overload 2: deps provided -> `ctx.env` is limited to only those declared deps.
-  // This keeps dependency access precise (e.g., UTILS_DIR only sees CI_PROJECT_DIR).
+  // Overload 2: no deps, without local (pipeline-only) -> creates a throwing local implementation.
+  add<const TName extends string, const TConfig extends Omit<VariableConfig<TName, any, readonly [], TEnvMap>, "local">>(
+    config: TConfig & { deps?: undefined },
+  ): AddConfigReturn<TEnvMap, TConfigs, TConfig & { local: (ctx: any) => Promise<any> }>;
+  // Overload 3: deps provided, with local -> `ctx.env` is limited to only those declared deps.
   add<
     const TName extends string,
     const TDeps extends readonly Extract<keyof TEnvMap, string>[],
     const TConfig extends VariableConfig<TName, any, TDeps, TEnvMap>,
   >(config: TConfig & { deps: TDeps }): AddConfigReturn<TEnvMap, TConfigs, TConfig>;
-  add(config: VariableConfig<string, any, readonly string[], TEnvMap>) {
-    this.configs.push(config);
-    return this as any;
+  // Overload 4: deps provided, without local (pipeline-only).
+  add<
+    const TName extends string,
+    const TDeps extends readonly Extract<keyof TEnvMap, string>[],
+    const TConfig extends Omit<VariableConfig<TName, any, TDeps, TEnvMap>, "local">,
+  >(config: TConfig & { deps: TDeps }): AddConfigReturn<TEnvMap, TConfigs, TConfig & { local: (ctx: any) => Promise<any> }>;
+  add(
+    config:
+      | VariableConfig<string, any, readonly string[], TEnvMap>
+      | Omit<VariableConfig<string, any, readonly string[], TEnvMap>, "local">,
+  ) {
+    if ("local" in config) {
+      this.#configs.push(config as VariableConfig<string, any, readonly string[], TEnvMap>);
+      return this;
+    }
+
+    const pipelineOnlyConfig: VariableConfig<string, any, readonly string[], TEnvMap> = {
+      ...(config as any),
+      local: async () => {
+        throw new Error(`Pipeline-only variable "${config.name}" is not available in local environments.`);
+      },
+    };
+    this.#configs.push(pipelineOnlyConfig);
+    this.#pipelineOnlyNames.add(config.name);
+    return this;
   }
 
   /**
@@ -57,10 +82,10 @@ class EnvVarBuilder<TEnvMap extends EnvVarGetterMap, TConfigs extends readonly V
    * @returns The map of environment variable getters.
    * @throws If a circular dependency is detected among the variables.
    */
-  build(): TEnvMap {
+  build(): TEnvMap & { __localOnlyNames: Set<string> } {
     const variant = IS_CI ? "pipeline" : "local";
 
-    const dependencyGraph = buildDependencyGraphFromDeclarations([...this.configs]);
+    const dependencyGraph = buildDependencyGraphFromDeclarations([...this.#configs]);
     const cycle = detectCycle(dependencyGraph);
     if (cycle) {
       throw new Error(`Circular dependency detected: ${cycle}`);
@@ -68,12 +93,15 @@ class EnvVarBuilder<TEnvMap extends EnvVarGetterMap, TConfigs extends readonly V
 
     const map: Partial<EnvVarGetterMap> = {};
 
-    for (const config of this.configs) {
+    for (const config of this.#configs) {
       const typedConfig = config as VariableConfig<string, any, any, any>;
       map[config.name] = this.#buildEnvGetter(map, typedConfig, variant);
     }
 
-    return map as TEnvMap;
+    const result = map as TEnvMap & { __localOnlyNames: Set<string> };
+    result.__localOnlyNames = new Set(this.#configs.map((c) => c.name).filter((name) => !this.#pipelineOnlyNames.has(name)));
+
+    return result;
   }
 
   #buildEnvGetter(map: Partial<EnvVarGetterMap>, typedConfig: VariableConfig<string, any, any, any>, variant: "pipeline" | "local") {
@@ -151,6 +179,12 @@ export const ENV_VARS_MAP = new EnvVarBuilder<{}, readonly []>()
     local: async () => 1,
     pipeline: createGetTypedEnvVarFromEnv("number"),
   })
+
+  // Pipeline-only variables.
+  .add({
+    name: "GITLAB_TOKEN",
+    pipeline: getEnvVarFromConfigName,
+  })
   .build();
 
 /**
@@ -173,18 +207,19 @@ export function getPipelineEnvVars<TVarNames extends readonly (keyof EnvVarsMap)
 
 /**
  * Gets the local variants of all environment variables defined in {@link ENV_VARS_MAP}.
+ * Excludes pipeline-only variables as they are not available in local environments.
  *
  * @returns An object mapping the variable names to their values or getters.
  */
 export function getLocalEnvVars(): PipelineEnvVarsRecord<LocalVarNames> {
-  const localVarNames = Object.keys(ENV_VARS_MAP) as LocalVarNames[];
+  const localOnlyNames = Array.from(ENV_VARS_MAP.__localOnlyNames) as LocalVarNames[];
 
-  return getPipelineEnvVars(...localVarNames);
+  return getPipelineEnvVars(...localOnlyNames);
 }
 
 /**
  * The names of all environment variables that are available locally.
- * All variables are available locally.
+ * Pipeline-only variables are excluded.
  */
 type LocalVarNames = keyof EnvVarsMap;
 
@@ -199,4 +234,4 @@ type PipelineEnvVarsRecord<TVarNames extends keyof EnvVarsMap> = {
  * A map of the environment variable names to the type.
  * All variables are functions returning promises.
  */
-export type EnvVarsMap = typeof ENV_VARS_MAP;
+export type EnvVarsMap = Omit<typeof ENV_VARS_MAP, "__localOnlyNames">;
