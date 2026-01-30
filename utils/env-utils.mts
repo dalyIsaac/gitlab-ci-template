@@ -40,6 +40,7 @@ export interface VariableConfig<
 > {
   name: TName;
   deps?: TDeps;
+  default?: string;
   local: CustomVariableFn<TName, TResult, TDeps, TEnvMap>;
   pipeline: CustomVariableFn<TName, TResult, TDeps, TEnvMap>;
 }
@@ -68,7 +69,7 @@ export const createGetTypedEnvVarFromEnv =
     config: VariableConfig<TName, StringTypeToType<TCustomVariableType>, TDeps, TEnvMap>;
     env: CustomVariableEnv<TDeps, TEnvMap>;
   }): Promise<StringTypeToType<TCustomVariableType>> => {
-    const value = env(ctx.config.name);
+    const value = env(ctx.config.name, ctx.config.default);
     return tryCastValue(value, type);
   };
 
@@ -95,7 +96,7 @@ export const getEnvVarFromConfigName = async <
 >(ctx: {
   config: VariableConfig<TName, string, TDeps, TEnvMap>;
   env: CustomVariableEnv<TDeps, TEnvMap>;
-}): Promise<string> => env(ctx.config.name);
+}): Promise<string> => env(ctx.config.name, ctx.config.default);
 
 export type CustomVariableType = "string" | "number" | "boolean";
 
