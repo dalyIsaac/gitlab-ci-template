@@ -42,7 +42,7 @@ class EnvVarBuilder<TEnvMap extends EnvVarGetterMap, TConfigs extends readonly V
   // Overload 2: no deps, without local (pipeline-only) -> creates a throwing local implementation.
   add<const TName extends string, const TConfig extends Omit<VariableConfig<TName, any, readonly [], TEnvMap>, "local">>(
     config: TConfig & { deps?: undefined },
-  ): AddConfigReturn<TEnvMap, TConfigs, TConfig & { local: (ctx: any) => Promise<any> }>;
+  ): AddConfigReturn<TEnvMap, TConfigs, TConfig & { local: (ctx: any) => ReturnType<TConfig["pipeline"]> }>;
   // Overload 3: deps provided, with local -> `ctx.env` is limited to only those declared deps.
   add<
     const TName extends string,
@@ -54,7 +54,9 @@ class EnvVarBuilder<TEnvMap extends EnvVarGetterMap, TConfigs extends readonly V
     const TName extends string,
     const TDeps extends readonly Extract<keyof TEnvMap, string>[],
     const TConfig extends Omit<VariableConfig<TName, any, TDeps, TEnvMap>, "local">,
-  >(config: TConfig & { deps: TDeps }): AddConfigReturn<TEnvMap, TConfigs, TConfig & { local: (ctx: any) => Promise<any> }>;
+  >(
+    config: TConfig & { deps: TDeps },
+  ): AddConfigReturn<TEnvMap, TConfigs, TConfig & { local: (ctx: any) => ReturnType<TConfig["pipeline"]> }>;
   add(
     config:
       | VariableConfig<string, any, readonly string[], TEnvMap>
@@ -66,11 +68,13 @@ class EnvVarBuilder<TEnvMap extends EnvVarGetterMap, TConfigs extends readonly V
     }
 
     const pipelineOnlyConfig: VariableConfig<string, any, readonly string[], TEnvMap> = {
-      ...(config as any),
+      name: config.name,
+      ...(config.deps !== undefined && { deps: config.deps }),
+      pipeline: config.pipeline,
       local: async () => {
         throw new Error(`Pipeline-only variable "${config.name}" is not available in local environments.`);
       },
-    };
+    } as VariableConfig<string, any, readonly string[], TEnvMap>;
     this.#configs.push(pipelineOnlyConfig);
     this.#pipelineOnlyNames.add(config.name);
     return this;
