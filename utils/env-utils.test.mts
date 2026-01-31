@@ -24,6 +24,9 @@ describe("env", () => {
   });
 
   it("should return fallback value when env variable is undefined", () => {
+    // Given
+    vi.stubEnv("UNDEFINED_WITH_FALLBACK", undefined);
+
     // When
     const result = env("UNDEFINED_WITH_FALLBACK", "fallback_value");
 
@@ -77,6 +80,7 @@ describe("getEnvVarFromConfigName", () => {
 
   it("should use fallback value when env variable is undefined", async () => {
     // Given
+    vi.stubEnv("WITH_FALLBACK", undefined);
     const cfg: VariableConfig<"WITH_FALLBACK", string, []> = {
       name: "WITH_FALLBACK",
       local: async () => "local",
@@ -177,6 +181,7 @@ describe("createGetTypedEnvVarFromEnv", () => {
 
   it("should use fallback string value when env var is missing", async () => {
     // Given
+    vi.stubEnv("FALLBACK_STR", undefined);
     const getTyped = createGetTypedEnvVarFromEnv("string", "fallback_string");
     const cfg: VariableConfig<"FALLBACK_STR", string, []> = {
       name: "FALLBACK_STR",
@@ -193,6 +198,7 @@ describe("createGetTypedEnvVarFromEnv", () => {
 
   it("should cast fallback number value", async () => {
     // Given
+    vi.stubEnv("FALLBACK_NUM", undefined);
     const getTyped = createGetTypedEnvVarFromEnv("number", "100");
     const cfg: VariableConfig<"FALLBACK_NUM", number, []> = {
       name: "FALLBACK_NUM",
@@ -209,6 +215,7 @@ describe("createGetTypedEnvVarFromEnv", () => {
 
   it("should cast fallback boolean value", async () => {
     // Given
+    vi.stubEnv("FALLBACK_BOOL", undefined);
     const getTyped = createGetTypedEnvVarFromEnv("boolean", "false");
     const cfg: VariableConfig<"FALLBACK_BOOL", boolean, []> = {
       name: "FALLBACK_BOOL",
