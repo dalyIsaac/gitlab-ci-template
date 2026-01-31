@@ -22,6 +22,28 @@ describe("env", () => {
     // When/Then
     expect(() => env("UNDEFINED_VAR")).toThrowError(/Environment variable \"UNDEFINED_VAR\" is not defined./);
   });
+
+  it("should return fallback value when env variable is undefined", () => {
+    // Given
+    vi.stubEnv("UNDEFINED_WITH_FALLBACK", undefined);
+
+    // When
+    const result = env("UNDEFINED_WITH_FALLBACK", "fallback_value");
+
+    // Then
+    expect(result).toBe("fallback_value");
+  });
+
+  it("should prefer env value over fallback", () => {
+    // Given
+    vi.stubEnv("DEFINED_VAR", "actual_value");
+
+    // When
+    const result = env("DEFINED_VAR", "fallback_value");
+
+    // Then
+    expect(result).toBe("actual_value");
+  });
 });
 
 describe("getEnvVarFromConfigName", () => {
@@ -54,6 +76,38 @@ describe("getEnvVarFromConfigName", () => {
 
     // Then
     await expect(result).rejects.toThrow(/Environment variable "MISSING" is not defined./);
+  });
+
+  it("should use fallback value when env variable is undefined", async () => {
+    // Given
+    vi.stubEnv("WITH_FALLBACK", undefined);
+    const cfg: VariableConfig<"WITH_FALLBACK", string, []> = {
+      name: "WITH_FALLBACK",
+      local: async () => "local",
+      pipeline: async () => "pipeline",
+    };
+
+    // When
+    const result = getEnvVarFromConfigName({ config: cfg, env: {} }, "fallback_value");
+
+    // Then
+    await expect(result).resolves.toBe("fallback_value");
+  });
+
+  it("should prefer env variable over fallback value", async () => {
+    // Given
+    vi.stubEnv("OVERRIDE_VAR", "env_value");
+    const cfg: VariableConfig<"OVERRIDE_VAR", string, []> = {
+      name: "OVERRIDE_VAR",
+      local: async () => "local",
+      pipeline: async () => "pipeline",
+    };
+
+    // When
+    const result = getEnvVarFromConfigName({ config: cfg, env: {} }, "fallback_value");
+
+    // Then
+    await expect(result).resolves.toBe("env_value");
   });
 });
 
@@ -123,6 +177,74 @@ describe("createGetTypedEnvVarFromEnv", () => {
 
     // Then
     await expect(result).rejects.toThrow(/Environment variable "MISSING_TYPED" is not defined./);
+  });
+
+  it("should use fallback string value when env var is missing", async () => {
+    // Given
+    vi.stubEnv("FALLBACK_STR", undefined);
+    const getTyped = createGetTypedEnvVarFromEnv("string", "fallback_string");
+    const cfg: VariableConfig<"FALLBACK_STR", string, []> = {
+      name: "FALLBACK_STR",
+      local: async () => "local",
+      pipeline: async () => "pipeline",
+    };
+
+    // When
+    const result = getTyped({ config: cfg, env: {} });
+
+    // Then
+    await expect(result).resolves.toBe("fallback_string");
+  });
+
+  it("should cast fallback number value", async () => {
+    // Given
+    vi.stubEnv("FALLBACK_NUM", undefined);
+    const getTyped = createGetTypedEnvVarFromEnv("number", "100");
+    const cfg: VariableConfig<"FALLBACK_NUM", number, []> = {
+      name: "FALLBACK_NUM",
+      local: async () => 0,
+      pipeline: async () => 0,
+    };
+
+    // When
+    const result = getTyped({ config: cfg, env: {} });
+
+    // Then
+    await expect(result).resolves.toBe(100);
+  });
+
+  it("should cast fallback boolean value", async () => {
+    // Given
+    vi.stubEnv("FALLBACK_BOOL", undefined);
+    const getTyped = createGetTypedEnvVarFromEnv("boolean", "false");
+    const cfg: VariableConfig<"FALLBACK_BOOL", boolean, []> = {
+      name: "FALLBACK_BOOL",
+      local: async () => true,
+      pipeline: async () => true,
+    };
+
+    // When
+    const result = getTyped({ config: cfg, env: {} });
+
+    // Then
+    await expect(result).resolves.toBe(false);
+  });
+
+  it("should prefer env value over fallback for typed values", async () => {
+    // Given
+    vi.stubEnv("OVERRIDE_NUM", "999");
+    const getTyped = createGetTypedEnvVarFromEnv("number", "100");
+    const cfg: VariableConfig<"OVERRIDE_NUM", number, []> = {
+      name: "OVERRIDE_NUM",
+      local: async () => 0,
+      pipeline: async () => 0,
+    };
+
+    // When
+    const result = getTyped({ config: cfg, env: {} });
+
+    // Then
+    await expect(result).resolves.toBe(999);
   });
 });
 

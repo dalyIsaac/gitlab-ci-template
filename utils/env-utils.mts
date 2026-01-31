@@ -63,12 +63,12 @@ export type CustomVariableEnv<TDeps extends readonly string[], TEnvMap extends R
 };
 
 export const createGetTypedEnvVarFromEnv =
-  <TCustomVariableType extends CustomVariableType>(type: TCustomVariableType) =>
+  <TCustomVariableType extends CustomVariableType>(type: TCustomVariableType, fallback?: string) =>
   async <TName extends string, TDeps extends readonly string[] = readonly string[], TEnvMap extends Record<string, any> = {}>(ctx: {
     config: VariableConfig<TName, StringTypeToType<TCustomVariableType>, TDeps, TEnvMap>;
     env: CustomVariableEnv<TDeps, TEnvMap>;
   }): Promise<StringTypeToType<TCustomVariableType>> => {
-    const value = env(ctx.config.name);
+    const value = env(ctx.config.name, fallback);
     return tryCastValue(value, type);
   };
 
@@ -86,16 +86,21 @@ type StringTypeToType<TCustomVariableType> = TCustomVariableType extends "number
  * Gets the value of an environment variable from the environment.
  *
  * @param ctx The context object containing config and env.
- * @returns The value of the environment variable.
+ * @param fallback Optional fallback value to use when the environment variable is not defined.
+ * @returns The value of the environment variable, or the fallback if not defined.
+ * @throws If the environment variable is not defined and no fallback value is provided.
  */
 export const getEnvVarFromConfigName = async <
   TName extends string,
   TDeps extends readonly string[] = readonly string[],
   TEnvMap extends Record<string, any> = {},
->(ctx: {
-  config: VariableConfig<TName, string, TDeps, TEnvMap>;
-  env: CustomVariableEnv<TDeps, TEnvMap>;
-}): Promise<string> => env(ctx.config.name);
+>(
+  ctx: {
+    config: VariableConfig<TName, string, TDeps, TEnvMap>;
+    env: CustomVariableEnv<TDeps, TEnvMap>;
+  },
+  fallback?: string,
+): Promise<string> => env(ctx.config.name, fallback);
 
 export type CustomVariableType = "string" | "number" | "boolean";
 
