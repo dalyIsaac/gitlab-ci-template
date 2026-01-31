@@ -88,6 +88,7 @@ type StringTypeToType<TCustomVariableType> = TCustomVariableType extends "number
  * @param ctx The context object containing config and env.
  * @param fallback Optional fallback value to use when the environment variable is not defined.
  * @returns The value of the environment variable, or the fallback if not defined.
+ * @throws If the environment variable is not defined and no fallback value is provided.
  */
 export const getEnvVarFromConfigName = async <
   TName extends string,

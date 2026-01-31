@@ -24,6 +24,9 @@ describe("env", () => {
   });
 
   it("should return fallback value when env variable is undefined", () => {
+    // Given
+    delete process.env.UNDEFINED_WITH_FALLBACK;
+
     // When
     const result = env("UNDEFINED_WITH_FALLBACK", "fallback_value");
 
@@ -77,6 +80,7 @@ describe("getEnvVarFromConfigName", () => {
 
   it("should use fallback value when env variable is undefined", async () => {
     // Given
+    delete process.env.WITH_FALLBACK;
     const cfg: VariableConfig<"WITH_FALLBACK", string, []> = {
       name: "WITH_FALLBACK",
       local: async () => "local",
@@ -177,6 +181,7 @@ describe("createGetTypedEnvVarFromEnv", () => {
 
   it("should use default string value when env var is missing", async () => {
     // Given
+    delete process.env.DEFAULT_STR;
     const getTyped = createGetTypedEnvVarFromEnv("string", "default_string");
     const cfg: VariableConfig<"DEFAULT_STR", string, []> = {
       name: "DEFAULT_STR",
@@ -193,6 +198,7 @@ describe("createGetTypedEnvVarFromEnv", () => {
 
   it("should cast default number value", async () => {
     // Given
+    delete process.env.DEFAULT_NUM;
     const getTyped = createGetTypedEnvVarFromEnv("number", "100");
     const cfg: VariableConfig<"DEFAULT_NUM", number, []> = {
       name: "DEFAULT_NUM",
@@ -209,6 +215,7 @@ describe("createGetTypedEnvVarFromEnv", () => {
 
   it("should cast default boolean value", async () => {
     // Given
+    delete process.env.DEFAULT_BOOL;
     const getTyped = createGetTypedEnvVarFromEnv("boolean", "false");
     const cfg: VariableConfig<"DEFAULT_BOOL", boolean, []> = {
       name: "DEFAULT_BOOL",
