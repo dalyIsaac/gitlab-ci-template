@@ -24,9 +24,6 @@ describe("env", () => {
   });
 
   it("should return fallback value when env variable is undefined", () => {
-    // Given
-    delete process.env.UNDEFINED_WITH_FALLBACK;
-
     // When
     const result = env("UNDEFINED_WITH_FALLBACK", "fallback_value");
 
@@ -80,7 +77,6 @@ describe("getEnvVarFromConfigName", () => {
 
   it("should use fallback value when env variable is undefined", async () => {
     // Given
-    delete process.env.WITH_FALLBACK;
     const cfg: VariableConfig<"WITH_FALLBACK", string, []> = {
       name: "WITH_FALLBACK",
       local: async () => "local",
@@ -179,12 +175,11 @@ describe("createGetTypedEnvVarFromEnv", () => {
     await expect(result).rejects.toThrow(/Environment variable "MISSING_TYPED" is not defined./);
   });
 
-  it("should use default string value when env var is missing", async () => {
+  it("should use fallback string value when env var is missing", async () => {
     // Given
-    delete process.env.DEFAULT_STR;
-    const getTyped = createGetTypedEnvVarFromEnv("string", "default_string");
-    const cfg: VariableConfig<"DEFAULT_STR", string, []> = {
-      name: "DEFAULT_STR",
+    const getTyped = createGetTypedEnvVarFromEnv("string", "fallback_string");
+    const cfg: VariableConfig<"FALLBACK_STR", string, []> = {
+      name: "FALLBACK_STR",
       local: async () => "local",
       pipeline: async () => "pipeline",
     };
@@ -193,15 +188,14 @@ describe("createGetTypedEnvVarFromEnv", () => {
     const result = getTyped({ config: cfg, env: {} });
 
     // Then
-    await expect(result).resolves.toBe("default_string");
+    await expect(result).resolves.toBe("fallback_string");
   });
 
-  it("should cast default number value", async () => {
+  it("should cast fallback number value", async () => {
     // Given
-    delete process.env.DEFAULT_NUM;
     const getTyped = createGetTypedEnvVarFromEnv("number", "100");
-    const cfg: VariableConfig<"DEFAULT_NUM", number, []> = {
-      name: "DEFAULT_NUM",
+    const cfg: VariableConfig<"FALLBACK_NUM", number, []> = {
+      name: "FALLBACK_NUM",
       local: async () => 0,
       pipeline: async () => 0,
     };
@@ -213,12 +207,11 @@ describe("createGetTypedEnvVarFromEnv", () => {
     await expect(result).resolves.toBe(100);
   });
 
-  it("should cast default boolean value", async () => {
+  it("should cast fallback boolean value", async () => {
     // Given
-    delete process.env.DEFAULT_BOOL;
     const getTyped = createGetTypedEnvVarFromEnv("boolean", "false");
-    const cfg: VariableConfig<"DEFAULT_BOOL", boolean, []> = {
-      name: "DEFAULT_BOOL",
+    const cfg: VariableConfig<"FALLBACK_BOOL", boolean, []> = {
+      name: "FALLBACK_BOOL",
       local: async () => true,
       pipeline: async () => true,
     };
@@ -230,7 +223,7 @@ describe("createGetTypedEnvVarFromEnv", () => {
     await expect(result).resolves.toBe(false);
   });
 
-  it("should prefer env value over default for typed values", async () => {
+  it("should prefer env value over fallback for typed values", async () => {
     // Given
     vi.stubEnv("OVERRIDE_NUM", "999");
     const getTyped = createGetTypedEnvVarFromEnv("number", "100");
