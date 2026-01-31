@@ -1,11 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  createGetEnvVarFromConfigName,
-  createGetTypedEnvVarFromEnv,
-  env,
-  getEnvVarFromConfigName,
-  type VariableConfig,
-} from "./env-utils.mts";
+import { createGetTypedEnvVarFromEnv, env, getEnvVarFromConfigName, type VariableConfig } from "./env-utils.mts";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -80,46 +74,25 @@ describe("getEnvVarFromConfigName", () => {
     // Then
     await expect(result).rejects.toThrow(/Environment variable "MISSING" is not defined./);
   });
-});
 
-describe("createGetEnvVarFromConfigName", () => {
-  it("should return the value from environment using config name", async () => {
+  it("should use fallback value when env variable is undefined", async () => {
     // Given
-    vi.stubEnv("CFG_VAR", "cfg_value");
-    const getWithDefault = createGetEnvVarFromConfigName();
-    const cfg: VariableConfig<"CFG_VAR", string, []> = {
-      name: "CFG_VAR",
+    const cfg: VariableConfig<"WITH_FALLBACK", string, []> = {
+      name: "WITH_FALLBACK",
       local: async () => "local",
       pipeline: async () => "pipeline",
     };
 
     // When
-    const result = getWithDefault({ config: cfg, env: {} });
+    const result = getEnvVarFromConfigName({ config: cfg, env: {} }, "fallback_value");
 
     // Then
-    await expect(result).resolves.toBe("cfg_value");
+    await expect(result).resolves.toBe("fallback_value");
   });
 
-  it("should use default value when env variable is undefined", async () => {
-    // Given
-    const getWithDefault = createGetEnvVarFromConfigName("default_value");
-    const cfg: VariableConfig<"WITH_DEFAULT", string, []> = {
-      name: "WITH_DEFAULT",
-      local: async () => "local",
-      pipeline: async () => "pipeline",
-    };
-
-    // When
-    const result = getWithDefault({ config: cfg, env: {} });
-
-    // Then
-    await expect(result).resolves.toBe("default_value");
-  });
-
-  it("should prefer env variable over default value", async () => {
+  it("should prefer env variable over fallback value", async () => {
     // Given
     vi.stubEnv("OVERRIDE_VAR", "env_value");
-    const getWithDefault = createGetEnvVarFromConfigName("default_value");
     const cfg: VariableConfig<"OVERRIDE_VAR", string, []> = {
       name: "OVERRIDE_VAR",
       local: async () => "local",
@@ -127,7 +100,7 @@ describe("createGetEnvVarFromConfigName", () => {
     };
 
     // When
-    const result = getWithDefault({ config: cfg, env: {} });
+    const result = getEnvVarFromConfigName({ config: cfg, env: {} }, "fallback_value");
 
     // Then
     await expect(result).resolves.toBe("env_value");
